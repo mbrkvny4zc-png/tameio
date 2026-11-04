@@ -58,9 +58,13 @@ def _months_back(n: int):
 @router.get("/reports/summary")
 async def summary(start: Optional[str] = None, end: Optional[str] = None, ctx: Ctx = Depends(get_ctx)):
     s, e = _range(start, end)
+    return await compute_summary(ctx.org_id, s, e)
+
+
+async def compute_summary(org_id: str, s: str, e: str) -> dict:
     d = get_db()
-    invoices = await d.invoices.find({"org_id": ctx.org_id}, {"_id": 0, "items": 0, "mydata.errors": 0}).to_list(50000)
-    expenses = await d.expenses.find({"org_id": ctx.org_id}, {"_id": 0}).to_list(50000)
+    invoices = await d.invoices.find({"org_id": org_id}, {"_id": 0, "items": 0, "mydata.errors": 0}).to_list(50000)
+    expenses = await d.expenses.find({"org_id": org_id}, {"_id": 0, "file": 0}).to_list(50000)
 
     income_net = income_vat = 0.0
     clients = defaultdict(float)

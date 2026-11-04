@@ -23,7 +23,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app import config, greek_tax as gt
-from app.auth import Ctx, get_ctx
+from app.auth import Ctx, get_ctx, require_role
 from app.db import get_db, now as _now
 
 router = APIRouter(tags=["mydata"])
@@ -111,6 +111,7 @@ async def get_settings(ctx: Ctx = Depends(get_ctx)):
 
 @router.put("/mydata/settings")
 async def put_settings(data: MyDataSettingsInput, ctx: Ctx = Depends(get_ctx)):
+    require_role(ctx, "owner", "admin", "accountant")
     ws = ctx.org_id
     env = data.environment if data.environment in ENVIRONMENTS else "simulation"
     vat = gt.normalize_afm(data.vat_number or "")

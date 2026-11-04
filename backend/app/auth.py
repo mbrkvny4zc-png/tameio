@@ -1,4 +1,9 @@
-"""Email/password auth with server-side sessions (httpOnly cookie or Bearer token)."""
+"""Email/password auth with server-side sessions, two-factor login, and role-aware organisation access.
+
+A user can belong to several organisations (their own business, client businesses
+they keep books for, a business they were invited to). The active organisation is
+chosen per request with the `X-Org-Id` header and checked against `memberships`.
+"""
 import re
 import secrets
 import uuid
@@ -10,12 +15,13 @@ import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
-from app import config
+from app import config, totp
 from app.db import get_db, now
 from app.ratelimit import rate_limit
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 COOKIE = "session"
+ROLES = ("owner", "admin", "staff", "accountant")
 
 
 @dataclass
@@ -24,6 +30,13 @@ class Ctx:
     org_id: str
     email: str
     name: str
+    role: str = "owner"
+    org_kind: str = "business"
+
+
+def require_role(ctx: Ctx, *roles: str):
+    if ctx.role not in roles:
+        raise HTTPException(status_code=403, detail="You don't have permission to do this in this business")
 
 
 def _hash(pw: str) -> str:
@@ -57,7 +70,7 @@ def _token_from(request: Request) -> Optional[str]:
     return token
 
 
-async def get_ctx(request: Request) -> Ctx:
+async def current_user(request: Request) -> dict:
     token = _token_from(request)
     if not token:
         raise HTTPException(status_code=401, detail="Please sign in")
@@ -67,7 +80,33 @@ async def get_ctx(request: Request) -> Ctx:
     u = await get_db().users.find_one({"id": s["user_id"]}, {"_id": 0})
     if not u:
         raise HTTPException(status_code=401, detail="Please sign in")
-    return Ctx(user_id=u["id"], org_id=u["org_id"], email=u["email"], name=u.get("name", ""))
+    return u
+
+
+async def get_ctx(request: Request) -> Ctx:
+    u = await current_user(request)
+    d = get_db()
+    requested = (request.headers.get("x-org-id") or "").strip()
+    org_id = requested or u.get("org_id")
+    m = await d.memberships.find_one({"org_id": org_id, "user_id": u["id"]}, {"_id": 0})
+    if not m:
+        if requested:
+            raise HTTPException(status_code=403, detail="You don't have access to this business")
+        m = await d.memberships.find_one({"user_id": u["id"]}, {"_id": 0}, sort=[("created_at", 1)])
+        if not m:
+            raise HTTPException(status_code=403, detail="Your account isn't linked to a business")
+    org = await d.orgs.find_one({"id": m["org_id"]}, {"_id": 0, "kind": 1}) or {}
+    return Ctx(user_id=u["id"], org_id=m["org_id"], email=u["email"], name=u.get("name", ""), role=m["role"], org_kind=org.get("kind", "business"))
+
+
+async def create_org(owner_id: str, kind: str, business_name: str = "", email: str = "", role: str = "owner", created_by: str = "") -> str:
+    d = get_db()
+    org_id = str(uuid.uuid4())
+    await d.orgs.insert_one({"id": org_id, "kind": kind, "owner_id": owner_id if role == "owner" else None,
+                             "plan": config.DEFAULT_PLAN if kind == "business" else "practice", "created_by": created_by or owner_id, "created_at": now()})
+    await d.business.insert_one({"org_id": org_id, "business_name": business_name.strip(), "business_email": email, "created_at": now()})
+    await d.memberships.insert_one({"org_id": org_id, "user_id": owner_id, "role": role, "created_at": now()})
+    return org_id
 
 
 class SignupInput(BaseModel):
@@ -75,15 +114,18 @@ class SignupInput(BaseModel):
     email: str
     password: str
     business_name: Optional[str] = ""
+    account_type: Optional[str] = "business"  # "business" | "accountant"
 
 
 class LoginInput(BaseModel):
     email: str
     password: str
+    code: Optional[str] = None
 
 
 def _public_user(u: dict) -> dict:
-    return {"id": u["id"], "email": u["email"], "name": u.get("name", ""), "org_id": u["org_id"]}
+    return {"id": u["id"], "email": u["email"], "name": u.get("name", ""), "org_id": u["org_id"],
+            "account_type": u.get("account_type", "business"), "two_factor": bool(u.get("totp_enabled"))}
 
 
 @router.post("/signup")
@@ -99,10 +141,11 @@ async def signup(data: SignupInput, request: Request, response: Response):
     d = get_db()
     if await d.users.find_one({"email": email}):
         raise HTTPException(status_code=409, detail="An account with this email already exists")
-    org_id, user_id = str(uuid.uuid4()), str(uuid.uuid4())
-    await d.orgs.insert_one({"id": org_id, "owner_id": user_id, "created_at": now()})
-    await d.business.insert_one({"org_id": org_id, "business_name": (data.business_name or "").strip(), "business_email": email, "created_at": now()})
-    user = {"id": user_id, "org_id": org_id, "email": email, "name": data.name.strip(), "password": _hash(data.password), "created_at": now()}
+    account_type = "accountant" if data.account_type == "accountant" else "business"
+    user_id = str(uuid.uuid4())
+    org_id = await create_org(user_id, "practice" if account_type == "accountant" else "business", data.business_name or "", email)
+    user = {"id": user_id, "org_id": org_id, "email": email, "name": data.name.strip(), "password": _hash(data.password),
+            "account_type": account_type, "created_at": now()}
     await d.users.insert_one({**user})
     token = await _create_session(user_id)
     _set_cookie(response, token)
@@ -115,6 +158,12 @@ async def login(data: LoginInput, request: Request, response: Response):
     u = await get_db().users.find_one({"email": data.email.strip().lower()}, {"_id": 0})
     if not u or not _check(data.password, u.get("password", "")):
         raise HTTPException(status_code=401, detail="Email or password is incorrect")
+    if u.get("totp_enabled"):
+        if not data.code:
+            raise HTTPException(status_code=401, detail={"message": "Enter the 6-digit code from your authenticator app", "two_factor_required": True})
+        rate_limit(request, f"2fa:{u['id']}", 10, 900)
+        if not totp.verify(u["totp_secret"], data.code):
+            raise HTTPException(status_code=401, detail={"message": "That code isn't right — try the newest one", "two_factor_required": True})
     token = await _create_session(u["id"])
     _set_cookie(response, token)
     return {"user": _public_user(u), "token": token}
@@ -130,6 +179,46 @@ async def logout(request: Request, response: Response):
 
 
 @router.get("/me")
-async def me(ctx: Ctx = Depends(get_ctx)):
-    u = await get_db().users.find_one({"id": ctx.user_id}, {"_id": 0})
+async def me(request: Request):
+    u = await current_user(request)
     return {"user": _public_user(u)}
+
+
+# ------------------------------------------------------------------ two-factor
+
+class CodeInput(BaseModel):
+    code: str
+    password: Optional[str] = None
+
+
+@router.post("/2fa/setup")
+async def two_factor_setup(request: Request):
+    u = await current_user(request)
+    if u.get("totp_enabled"):
+        raise HTTPException(status_code=400, detail="Two-factor sign-in is already on")
+    secret = totp.new_secret()
+    await get_db().users.update_one({"id": u["id"]}, {"$set": {"totp_pending": secret}})
+    return {"secret": secret, "otpauth_uri": totp.otpauth_uri(secret, u["email"], config.APP_NAME)}
+
+
+@router.post("/2fa/enable")
+async def two_factor_enable(data: CodeInput, request: Request):
+    u = await current_user(request)
+    secret = u.get("totp_pending")
+    if not secret:
+        raise HTTPException(status_code=400, detail="Start the setup again")
+    if not totp.verify(secret, data.code):
+        raise HTTPException(status_code=400, detail="That code isn't right — check your phone's time and try the newest code")
+    await get_db().users.update_one({"id": u["id"]}, {"$set": {"totp_secret": secret, "totp_enabled": True, "updated_at": now()}, "$unset": {"totp_pending": ""}})
+    return {"ok": True}
+
+
+@router.post("/2fa/disable")
+async def two_factor_disable(data: CodeInput, request: Request):
+    u = await current_user(request)
+    if not u.get("totp_enabled"):
+        return {"ok": True}
+    if not _check(data.password or "", u.get("password", "")) or not totp.verify(u["totp_secret"], data.code):
+        raise HTTPException(status_code=400, detail="Password or code is incorrect")
+    await get_db().users.update_one({"id": u["id"]}, {"$set": {"totp_enabled": False}, "$unset": {"totp_secret": ""}})
+    return {"ok": True}

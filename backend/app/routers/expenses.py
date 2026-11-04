@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from app import ai, config, greek_tax as gt
 from app.auth import Ctx, get_ctx
+from app.plans import enforce
 from app.common import next_number, valid_currency
 from app.db import get_db, now, today
 from app.ratelimit import rate_limit
@@ -243,6 +244,7 @@ async def build_suggestion(org_id: str, x: dict, biz: dict) -> dict:
 @router.post("/scans")
 async def scan(request: Request, file: UploadFile = File(...), ctx: Ctx = Depends(get_ctx)):
     rate_limit(request, f"scan:{ctx.org_id}", 120)
+    await enforce(ctx.org_id, "scans_month")
     data = await file.read(MAX_PDF + 1)
     if not data:
         raise HTTPException(status_code=400, detail="The file is empty")

@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from app import config
 from app.auth import Ctx, get_ctx
+from app.plans import enforce
 from app.common import Item, clean_items, esc, money, next_number, totals, valid_currency
 from app.db import get_db, now, today
 from app.mailer import layout, send
@@ -159,6 +160,7 @@ async def convert(doc_id: str, data: ConvertInput, ctx: Ctx = Depends(get_ctx)):
     party = {k: v for k, v in src.items() if k.startswith("client_")}
     new_id = str(uuid.uuid4())
     if data.to == "invoice":
+        await enforce(ctx.org_id, "invoices_month")
         number = await next_number(ctx.org_id, "invoice", "INV")
         await d.invoices.insert_one({"id": new_id, "kind": "invoice", "number": number, **base, **party, "status": "draft",
                                      "due_date": None, "recurring": "none", "next_recurring_at": None})

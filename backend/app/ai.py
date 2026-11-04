@@ -131,3 +131,47 @@ async def extract_document(data: bytes, media_type: str, biz: dict) -> dict:
 
 def category_label(key: Optional[str]) -> str:
     return CATEGORIES.get(key or "", key or "Other")
+
+
+SUGGEST_SCHEMA = {
+    "type": "object",
+    "properties": {"suggestions": {"type": "array", "items": {"type": "object", "properties": {
+        "id": {"type": "string"}, "category": {"type": "string", "enum": list(CATEGORIES)},
+        "confidence": {"type": "string", "enum": ["low", "medium", "high"]}},
+        "required": ["id", "category", "confidence"], "additionalProperties": False}}},
+    "required": ["suggestions"], "additionalProperties": False,
+}
+
+
+async def suggest_categories(docs: list) -> dict:
+    """docs: [{id, issuer, afm, lines: [str], net}] -> {id: (category, confidence)}. One request per batch of up to 40."""
+    if not config.AI_SCAN_ENABLED or not docs:
+        return {}
+    listing = "\n".join(json.dumps(d, ensure_ascii=False) for d in docs[:40])
+    prompt = ("Pick the best expense category for each purchase invoice a small Greek business received. "
+              "Use the supplier name and line descriptions. Categories: " + ", ".join(f"{k} ({v})" for k, v in CATEGORIES.items())
+              + ".\nUse low confidence when the supplier or lines don't make the purpose clear.\n\n" + listing)
+    try:
+        client = anthropic.AsyncAnthropic(timeout=90.0, max_retries=2)
+        resp = await client.beta.messages.create(
+            model=config.ANTHROPIC_MODEL, max_tokens=8000, messages=[{"role": "user", "content": prompt}],
+            output_config={"effort": "low", "format": {"type": "json_schema", "schema": SUGGEST_SCHEMA}},
+            betas=["server-side-fallback-2026-07-01"], fallbacks="default")
+    except anthropic.AuthenticationError:
+        raise ScanError("AI isn't configured on the server (missing or invalid Anthropic API key).")
+    except (anthropic.RateLimitError, anthropic.APIConnectionError, anthropic.APIStatusError) as e:
+        log.warning("AI suggestion failed: %s", e)
+        raise ScanError("The AI service is unavailable right now — try again shortly.")
+    except Exception as e:
+        if "api_key" in str(e).lower() or "auth" in str(e).lower():
+            raise ScanError("AI isn't configured on the server (missing Anthropic API key).")
+        raise
+    if resp.stop_reason in ("refusal", "max_tokens"):
+        return {}
+    text = next((b.text for b in resp.content if b.type == "text"), "")
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return {}
+    valid = {d["id"] for d in docs}
+    return {s["id"]: (s["category"], s["confidence"]) for s in data.get("suggestions", []) if s["id"] in valid}

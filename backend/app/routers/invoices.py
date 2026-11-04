@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from app import config, greek_tax as gt
 from app.auth import Ctx, get_ctx
+from app.plans import enforce
 from app.common import Item, clean_items, esc, money, next_number, totals, valid_currency
 from app.db import get_db, now, today
 from app.mailer import layout, send
@@ -94,6 +95,7 @@ async def get_invoice(invoice_id: str, ctx: Ctx = Depends(get_ctx)):
 
 @router.post("/invoices")
 async def create_invoice(data: InvoiceInput, ctx: Ctx = Depends(get_ctx)):
+    await enforce(ctx.org_id, "invoices_month")
     f = await _fields(data, ctx)
     status = data.status if data.status in STATUSES else "draft"
     doc = {"id": str(uuid.uuid4()), "org_id": ctx.org_id, "kind": "invoice", "number": await next_number(ctx.org_id, "invoice", "INV"),

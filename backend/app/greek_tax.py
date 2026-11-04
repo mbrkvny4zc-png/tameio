@@ -299,9 +299,110 @@ def parse_response(xml_text: str) -> dict:
             out["qr_url"] = (child.text or "").strip()
         elif name == "cancellationMark":
             out["cancellation_mark"] = (child.text or "").strip()
+        elif name == "classificationMark":
+            out["classification_mark"] = (child.text or "").strip()
         elif name == "errors":
             for err in child:
                 e = {_local(x.tag): (x.text or "").strip() for x in err}
                 out["errors"].append({"code": e.get("code", ""), "message": e.get("message", "")})
     out["ok"] = out.get("status") == "Success"
+    return out
+
+
+# ---------------------------------------------------------------- received documents & expense classification
+
+NS_ECLS = "https://www.aade.gr/myDATA/expensesClassificaton/v1.0"  # (sic) AADE spelling
+
+# myDATA expense classification categories (classificationCategory)
+EXPENSE_CATEGORIES = {
+    "category2_1": "Αγορές εμπορευμάτων (goods for resale)",
+    "category2_2": "Αγορές πρώτων υλών / υλικών (raw materials)",
+    "category2_3": "Λήψη υπηρεσιών (services received)",
+    "category2_4": "Γενικά έξοδα με δικαίωμα έκπτωσης ΦΠΑ (general, VAT deductible)",
+    "category2_5": "Γενικά έξοδα χωρίς δικαίωμα έκπτωσης ΦΠΑ (general, no VAT deduction)",
+    "category2_6": "Αμοιβές και παροχές προσωπικού (staff costs)",
+    "category2_7": "Αγορές παγίων (fixed assets)",
+}
+
+
+def _txt(el, name):
+    for c in el.iter():
+        if _local(c.tag) == name:
+            return (c.text or "").strip()
+    return ""
+
+
+def _num_or_zero(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def parse_requested_docs(xml_text: str) -> dict:
+    """Parse a RequestDocs response: the invoices other businesses issued to you, plus the paging token."""
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        raise ValueError("AADE returned an unreadable response")
+    docs = []
+    for inv in (e for e in root.iter() if _local(e.tag) == "invoice"):
+        issuer = next((c for c in inv if _local(c.tag) == "issuer"), None)
+        header = next((c for c in inv if _local(c.tag) == "invoiceHeader"), None)
+        summary = next((c for c in inv if _local(c.tag) == "invoiceSummary"), None)
+        lines = []
+        for det in (c for c in inv if _local(c.tag) == "invoiceDetails"):
+            lines.append({"line_number": int(_num_or_zero(_txt(det, "lineNumber")) or len(lines) + 1),
+                          "net": _num_or_zero(_txt(det, "netValue")), "vat": _num_or_zero(_txt(det, "vatAmount")),
+                          "vat_category": _txt(det, "vatCategory"), "description": _txt(det, "itemDescr")})
+        mark = next(((c.text or "").strip() for c in inv if _local(c.tag) == "mark"), "")
+        cancelled = next(((c.text or "").strip() for c in inv if _local(c.tag) == "cancelledByMark"), "")
+        docs.append({
+            "mark": mark, "uid": next(((c.text or "").strip() for c in inv if _local(c.tag) == "uid"), ""),
+            "issuer_afm": _txt(issuer, "vatNumber") if issuer is not None else "", "issuer_name": _txt(issuer, "name") if issuer is not None else "",
+            "series": _txt(header, "series") if header is not None else "", "aa": _txt(header, "aa") if header is not None else "",
+            "issue_date": _txt(header, "issueDate") if header is not None else "", "invoice_type": _txt(header, "invoiceType") if header is not None else "",
+            "currency": (_txt(header, "currency") if header is not None else "") or "EUR",
+            "net": _num_or_zero(_txt(summary, "totalNetValue")) if summary is not None else sum(l["net"] for l in lines),
+            "vat": _num_or_zero(_txt(summary, "totalVatAmount")) if summary is not None else sum(l["vat"] for l in lines),
+            "gross": _num_or_zero(_txt(summary, "totalGrossValue")) if summary is not None else 0.0,
+            "lines": lines, "cancelled_by_mark": cancelled,
+        })
+    token = next((e for e in root.iter() if _local(e.tag) == "continuationToken"), None)
+    nxt = None
+    if token is not None:
+        pk, rk = _txt(token, "nextPartitionKey"), _txt(token, "nextRowKey")
+        if pk and rk:
+            nxt = {"nextPartitionKey": pk, "nextRowKey": rk}
+    return {"docs": docs, "continuation": nxt}
+
+
+def build_expenses_classification(items: list) -> str:
+    """items: [{mark, lines: [{line_number, net}], category, e3_type}] -> ExpensesClassificationsDoc (per-line mode)."""
+    ET.register_namespace("", NS_ECLS)
+    root = ET.Element(f"{{{NS_ECLS}}}ExpensesClassificationsDoc")
+    for it in items:
+        ic = ET.SubElement(root, f"{{{NS_ECLS}}}expensesInvoiceClassification")
+        ET.SubElement(ic, f"{{{NS_ECLS}}}invoiceMark").text = str(it["mark"])
+        for line in it["lines"]:
+            det = ET.SubElement(ic, f"{{{NS_ECLS}}}invoicesExpensesClassificationDetails")
+            ET.SubElement(det, f"{{{NS_ECLS}}}lineNumber").text = str(line["line_number"])
+            data = ET.SubElement(det, f"{{{NS_ECLS}}}expensesClassificationDetailData")
+            ET.SubElement(data, f"{{{NS_ECLS}}}classificationType").text = it["e3_type"]
+            ET.SubElement(data, f"{{{NS_ECLS}}}classificationCategory").text = it["category"]
+            ET.SubElement(data, f"{{{NS_ECLS}}}amount").text = _s(_d(line["net"]))
+    return '<?xml version="1.0" encoding="UTF-8"?>' + ET.tostring(root, encoding="unicode")
+
+
+def parse_responses(xml_text: str) -> list:
+    """All <response> entries of a ResponseDoc (batch sends), each like parse_response()."""
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return [{"ok": False, "status": "ParseError", "errors": [{"code": "", "message": "AADE returned an unreadable response"}]}]
+    out = []
+    for resp in (e for e in root.iter() if _local(e.tag) == "response"):
+        wrapper = ET.Element("ResponseDoc")
+        wrapper.append(resp)
+        out.append(parse_response(ET.tostring(wrapper, encoding="unicode")))
     return out

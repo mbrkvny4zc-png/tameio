@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app import greek_tax as gt
-from app.auth import Ctx, get_ctx
+from app.auth import Ctx, get_ctx, require_role
 from app.db import get_db, now
 
 router = APIRouter(tags=["business"])
@@ -43,6 +43,7 @@ async def read_business(ctx: Ctx = Depends(get_ctx)):
 
 @router.put("/business")
 async def update_business(data: BusinessInput, ctx: Ctx = Depends(get_ctx)):
+    require_role(ctx, "owner", "admin", "accountant")
     fields = {k: (getattr(data, k) or "").strip() for k in BUSINESS_FIELDS}
     fields["afm"] = gt.normalize_afm(fields["afm"])
     fields["iban"] = gt.normalize_iban(fields["iban"])

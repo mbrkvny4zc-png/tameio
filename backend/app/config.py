@@ -27,3 +27,14 @@ AI_SCAN_ENABLED = os.environ.get("AI_SCAN_ENABLED", "true").lower() == "true"
 MYDATA_ENCRYPTION_KEY = os.environ.get("MYDATA_ENCRYPTION_KEY", "")
 
 SCHEDULER_ENABLED = os.environ.get("SCHEDULER_ENABLED", "true").lower() == "true"
+
+# Plans: new businesses start here. Accountants (practice accounts) are always free.
+DEFAULT_PLAN = os.environ.get("DEFAULT_PLAN", "free")
+PLATFORM_ADMINS = [e.strip().lower() for e in os.environ.get("PLATFORM_ADMINS", "").split(",") if e.strip()]
+
+# Receipts by email: receipts+<token>@INBOUND_DOMAIN, delivered to /api/inbound/email with this secret.
+INBOUND_DOMAIN = os.environ.get("INBOUND_DOMAIN", "")
+INBOUND_SECRET = os.environ.get("INBOUND_SECRET", "")
+
+# Viva Wallet (card payments on invoices). "demo" or "live".
+VIVA_ENV = os.environ.get("VIVA_ENV", "demo")

@@ -19,7 +19,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app import config, greek_tax as gt
-from app.auth import Ctx, get_ctx
+from app.auth import Ctx, get_ctx, require_role
+from app.plans import enforce
 from app.db import get_db, now as _now
 from app.mailer import layout, send
 from app.notify import notify
@@ -80,6 +81,7 @@ async def get_requirements(ctx: Ctx = Depends(get_ctx)):
 
 @router.put("/suppliers/requirements")
 async def put_requirements(data: RequirementsInput, ctx: Ctx = Depends(get_ctx)):
+    require_role(ctx, "owner", "admin", "accountant")
     ws = ctx.org_id
     items, seen = [], set()
     for r in data.items:
@@ -226,6 +228,7 @@ async def create_supplier(data: SupplierInput, ctx: Ctx = Depends(get_ctx)):
     user_id, ws = ctx.user_id, ctx.org_id
     if not data.name.strip():
         raise HTTPException(status_code=400, detail="Supplier name is required")
+    await enforce(ctx.org_id, "suppliers")
     profile = _clean_profile(data)
     if profile["afm"]:
         dup = await get_db().suppliers.find_one({"org_id": ws, "afm": profile["afm"]}, {"_id": 0, "name": 1})

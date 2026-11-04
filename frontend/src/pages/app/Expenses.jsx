@@ -6,6 +6,7 @@ import { api, download, openFile } from "@/lib/api";
 import { date, money, todayISO } from "@/lib/format";
 import { Badge, Button, Empty, IconBtn, Input, PageHeader, PageLoader, Segmented, Select, Sheet, Table } from "@/components/ui";
 import { ExpenseForm } from "@/components/ExpenseForm";
+import { translate as tr } from "@/lib/i18n";
 
 const blank = () => ({ date: todayISO(), vendor_name: "", vendor_afm: "", category: "materials", description: "", net: "", vat: "", total: "",
   payment_status: "paid", payment_method: "card", document_number: "", mark: "" });
@@ -22,7 +23,7 @@ export default function Expenses() {
 
   const load = useCallback(async () => setList(await api.get("/expenses")), []);
   useEffect(() => { load().catch(() => setList([])); api.get("/expenses/categories").then(setCats).catch(() => {}); }, [load]);
-  const label = (k) => cats.find((c) => c.key === k)?.label || k;
+  const label = (k) => tr(cats.find((c) => c.key === k)?.label || k);
   const month = todayISO().slice(0, 7);
 
   const shown = useMemo(() => (list || []).filter((x) =>
@@ -36,7 +37,7 @@ export default function Expenses() {
     const body = { ...editing, net: parseFloat(editing.net) || 0, vat: parseFloat(editing.vat) || 0, total: editing.total === "" ? null : parseFloat(editing.total) };
     try {
       if (editing.id) await api.put(`/expenses/${editing.id}`, body); else await api.post("/expenses", body);
-      toast.success("Expense saved"); setEditing(null); load();
+      toast.success(tr("Expense saved")); setEditing(null); load();
     } catch (e) { toast.error(e.message); }
     setBusy(false);
   };
@@ -47,26 +48,24 @@ export default function Expenses() {
     download(`/reports/export.csv?kind=expenses&start=${start}&end=${todayISO()}`, `expenses-${todayISO()}.csv`).catch((e) => toast.error(e.message));
   };
 
-  if (!list) return <PageLoader />;
-  return (
-    <div className="animate-in">
-      <PageHeader title="Expenses" subtitle="Everything you spend, categorised and ready for your accountant."
+  if (!list) return <PageLoader />; return (<div className="animate-in">
+      <PageHeader title={tr("Expenses")} subtitle={tr("Everything you spend, categorised and ready for your accountant.")}
         actions={<>
-          <Button variant="secondary" onClick={exportCsv}><Download className="h-4 w-4" />Export</Button>
-          <Button variant="secondary" onClick={() => setEditing(blank())} data-testid="new-expense"><Plus className="h-4 w-4" />Add manually</Button>
-          <Link to="/app/scan" className="h-10 px-4 inline-flex items-center gap-2 rounded-xl bg-brand text-white text-sm font-semibold hover:brightness-110"><ScanLine className="h-4 w-4" />Scan</Link>
+          <Button variant="secondary" onClick={exportCsv}><Download className="h-4 w-4" />{tr("Export")}</Button>
+          <Button variant="secondary" onClick={() => setEditing(blank())} data-testid="new-expense"><Plus className="h-4 w-4" />{tr("Add manually")}</Button>
+          <Link to="/app/scan" className="h-10 px-4 inline-flex items-center gap-2 rounded-xl bg-brand text-white text-sm font-semibold hover:brightness-110"><ScanLine className="h-4 w-4" />{tr("Scan")}</Link>
         </>} />
 
       {list.length === 0 ? (
-        <Empty icon={Receipt} title="No expenses yet" text="Scan a receipt and AI will fill in the vendor, VAT, total and category for you."
-          action={<Link to="/app/scan" className="h-10 px-4 inline-flex items-center gap-2 rounded-xl bg-brand text-white text-sm font-semibold"><ScanLine className="h-4 w-4" />Scan your first receipt</Link>} />
+        <Empty icon={Receipt} title={tr("No expenses yet")} text={tr("Scan a receipt and AI will fill in the vendor, VAT, total and category for you.")}
+          action={<Link to="/app/scan" className="h-10 px-4 inline-flex items-center gap-2 rounded-xl bg-brand text-white text-sm font-semibold"><ScanLine className="h-4 w-4" />{tr("Scan your first receipt")}</Link>} />
       ) : (
         <>
           <div className="flex flex-col lg:flex-row gap-3 lg:items-center justify-between mb-4">
             <Segmented value={filter} onChange={setFilter} options={[["all", "All"], ["month", "This month"], ["unpaid", "To pay"]]} />
             <div className="flex gap-2">
-              <Select value={cat} onChange={(e) => setCat(e.target.value)} className="w-48"><option value="">All categories</option>{cats.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}</Select>
-              <div className="relative w-full sm:w-56"><Search className="h-4 w-4 absolute left-3 top-3 text-muted" /><Input className="pl-9" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+              <Select value={cat} onChange={(e) => setCat(e.target.value)} className="w-48"><option value="">{tr("All categories")}</option>{cats.map((c) => <option key={c.key} value={c.key}>{tr(c.label)}</option>)}</Select>
+              <div className="relative w-full sm:w-56"><Search className="h-4 w-4 absolute left-3 top-3 text-muted" /><Input className="pl-9" placeholder={tr("Search")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
             </div>
           </div>
           <Table head={["Date", "Vendor", "Category", { label: "Net", className: "text-right hidden md:table-cell" }, { label: "VAT", className: "text-right hidden md:table-cell" }, { label: "Total", className: "text-right" }, "", ""]}>
@@ -78,12 +77,12 @@ export default function Expenses() {
                 <td className="td text-right num hidden md:table-cell">{money(x.net, x.currency)}</td>
                 <td className="td text-right num text-muted hidden md:table-cell">{money(x.vat, x.currency)}</td>
                 <td className="td text-right num font-semibold">{money(x.total, x.currency)}</td>
-                <td className="td">{x.payment_status === "unpaid" ? <button onClick={() => markPaid(x)} title="Mark as paid"><Badge tone="warn" className="cursor-pointer hover:ring-2 hover:ring-warn/20">To pay</Badge></button> : <CheckCircle2 className="h-4 w-4 text-success" aria-label="Paid" />}</td>
+                <td className="td">{x.payment_status === "unpaid" ? <button onClick={() => markPaid(x)} title={tr("Mark as paid")}><Badge tone="warn" className="cursor-pointer hover:ring-2 hover:ring-warn/20">{tr("To pay")}</Badge></button> : <CheckCircle2 className="h-4 w-4 text-success" aria-label={tr("Paid")} />}</td>
                 <td className="td">
                   <div className="flex justify-end -mr-2">
-                    {x.file && <IconBtn icon={Paperclip} label="View receipt" onClick={() => openFile(`/expenses/${x.id}/file`).catch(() => toast.error("File not available"))} />}
-                    <IconBtn icon={Pencil} label="Edit" onClick={() => setEditing({ ...x })} />
-                    <IconBtn icon={Trash2} label="Delete" tone="danger" onClick={() => del(x)} />
+                    {x.file && <IconBtn icon={Paperclip} label={tr("View receipt")} onClick={() => openFile(`/expenses/${x.id}/file`).catch(() => toast.error(tr("File not available")))} />}
+                    <IconBtn icon={Pencil} label={tr("Edit")} onClick={() => setEditing({ ...x })} />
+                    <IconBtn icon={Trash2} label={tr("Delete")} tone="danger" onClick={() => del(x)} />
                   </div>
                 </td>
               </tr>
@@ -99,7 +98,7 @@ export default function Expenses() {
       )}
 
       <Sheet open={!!editing} onClose={() => setEditing(null)} title={editing?.id ? `Edit ${editing.number}` : "Add expense"} width="max-w-lg"
-        footer={<><Button variant="secondary" onClick={() => setEditing(null)}>Cancel</Button><Button onClick={save} loading={busy} data-testid="expense-save">Save</Button></>}>
+        footer={<><Button variant="secondary" onClick={() => setEditing(null)}>{tr("Cancel")}</Button><Button onClick={save} loading={busy} data-testid="expense-save">{tr("Save")}</Button></>}>
         {editing && <ExpenseForm draft={editing} categories={cats} onChange={setEditing} />}
       </Sheet>
     </div>

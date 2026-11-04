@@ -7,6 +7,7 @@ import { date, lineTotals, money, todayISO } from "@/lib/format";
 import { printDocument } from "@/lib/print";
 import { Badge, Button, Empty, Field, IconBtn, Input, PageHeader, PageLoader, Select, Sheet, Table, Textarea } from "@/components/ui";
 import { ClientPicker, EMPTY_ITEM, ItemsEditor } from "@/components/ItemsEditor";
+import { translate as tr } from "@/lib/i18n";
 
 const CONFIG = {
   quote: {
@@ -51,27 +52,27 @@ function DocEditor({ type, value, onClose, onSaved, clients, suppliers }) {
   };
   return (
     <Sheet open onClose={onClose} title={f.id ? `Edit ${f.number}` : `New ${C.one}`} width="max-w-3xl"
-      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={save} loading={busy} disabled={lineTotals(f.items, f.tax_rate).total <= 0} data-testid="doc-save">{f.id ? "Save" : `Create ${C.one}`}</Button></>}>
+      footer={<><Button variant="secondary" onClick={onClose}>{tr("Cancel")}</Button><Button onClick={save} loading={busy} disabled={lineTotals(f.items, f.tax_rate).total <= 0} data-testid="doc-save">{f.id ? "Save" : `Create ${C.one}`}</Button></>}>
       <div className="space-y-6">
         {C.party === "client" ? <ClientPicker clients={clients} value={f} onChange={setF} /> : (
           <div className="grid sm:grid-cols-2 gap-3">
-            <Field label="Supplier">
+            <Field label={tr("Supplier")}>
               <Select value={f.supplier_id || ""} onChange={(e) => setF({ ...f, supplier_id: e.target.value || null })}>
                 <option value="">{suppliers.length ? "— One-off supplier (type below) —" : "No saved suppliers yet"}</option>
                 {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </Select>
             </Field>
-            {!f.supplier_id && <Field label="Supplier name"><Input value={f.supplier_name || ""} onChange={(e) => setF({ ...f, supplier_name: e.target.value })} /></Field>}
-            {!f.supplier_id && <Field label="Supplier email"><Input type="email" value={f.supplier_email || ""} onChange={(e) => setF({ ...f, supplier_email: e.target.value })} /></Field>}
+            {!f.supplier_id && <Field label={tr("Supplier name")}><Input value={f.supplier_name || ""} onChange={(e) => setF({ ...f, supplier_name: e.target.value })} /></Field>}
+            {!f.supplier_id && <Field label={tr("Supplier email")}><Input type="email" value={f.supplier_email || ""} onChange={(e) => setF({ ...f, supplier_email: e.target.value })} /></Field>}
           </div>
         )}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <Field label="Date"><Input type="date" value={f.issue_date || ""} onChange={(e) => setF({ ...f, issue_date: e.target.value })} /></Field>
+          <Field label={tr("Date")}><Input type="date" value={f.issue_date || ""} onChange={(e) => setF({ ...f, issue_date: e.target.value })} /></Field>
           <Field label={C.dateLabel}><Input type="date" value={f.valid_until || ""} onChange={(e) => setF({ ...f, valid_until: e.target.value })} /></Field>
-          <Field label="Currency"><Select value={f.currency} onChange={(e) => setF({ ...f, currency: e.target.value })}><option>EUR</option><option>USD</option><option>GBP</option></Select></Field>
+          <Field label={tr("Currency")}><Select value={f.currency} onChange={(e) => setF({ ...f, currency: e.target.value })}><option>{tr("EUR")}</option><option>{tr("USD")}</option><option>{tr("GBP")}</option></Select></Field>
         </div>
         <ItemsEditor items={f.items} onChange={(items) => setF({ ...f, items })} taxRate={f.tax_rate} onTaxRate={(tax_rate) => setF({ ...f, tax_rate })} currency={f.currency} />
-        <Field label="Notes"><Textarea value={f.notes || ""} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder={type === "quote" ? "Scope, timing, what's included…" : ""} /></Field>
+        <Field label={tr("Notes")}><Textarea value={f.notes || ""} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder={type === "quote" ? "Scope, timing, what's included…" : ""} /></Field>
       </div>
     </Sheet>
   );
@@ -105,9 +106,9 @@ export default function Documents({ type }) {
   const send = async (d) => {
     try {
       const r = await api.post(`/documents/${d.id}/send`);
-      if (r.emailed) toast.success("Sent");
-      else if (r.url) { await navigator.clipboard?.writeText(r.url).catch(() => {}); toast.message("Email isn't set up — link copied instead", { description: r.url }); }
-      else toast.message("Email isn't set up on the server — marked as sent");
+      if (r.emailed) toast.success(tr("Sent"));
+      else if (r.url) { await navigator.clipboard?.writeText(r.url).catch(() => {}); toast.message(tr("Email isn't set up — link copied instead"), { description: r.url }); }
+      else toast.message(tr("Email isn't set up on the server — marked as sent"));
       load();
     } catch (e) { toast.error(e.message); }
   };
@@ -122,15 +123,13 @@ export default function Documents({ type }) {
   const setStatus = async (d, status) => { try { await api.put(`/documents/${d.id}/status`, { status }); load(); } catch (e) { toast.error(e.message); } };
   const del = async (d) => { if (window.confirm(`Delete ${d.number}?`)) { await api.del(`/documents/${d.id}`).catch((e) => toast.error(e.message)); load(); } };
 
-  if (!list) return <PageLoader />;
-  return (
-    <div className="animate-in">
-      <PageHeader title={C.title} subtitle={C.subtitle} actions={<Button onClick={() => setEditing(blank())} data-testid="new-doc"><Plus className="h-4 w-4" />New {C.one}</Button>} />
+  if (!list) return <PageLoader />; return (<div className="animate-in">
+      <PageHeader title={tr(C.title)} subtitle={tr(C.subtitle)} actions={<Button onClick={() => setEditing(blank())} data-testid="new-doc"><Plus className="h-4 w-4" />New {C.one}</Button>} />
       {list.length === 0 ? (
         <Empty icon={C.icon} title={`No ${C.title.toLowerCase()} yet`} text={C.empty} action={<Button onClick={() => setEditing(blank())}><Plus className="h-4 w-4" />New {C.one}</Button>} />
       ) : (
         <>
-          <div className="relative sm:w-64 mb-4"><Search className="h-4 w-4 absolute left-3 top-3 text-muted" /><Input className="pl-9" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+          <div className="relative sm:w-64 mb-4"><Search className="h-4 w-4 absolute left-3 top-3 text-muted" /><Input className="pl-9" placeholder={tr("Search")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
           <Table head={["Number", C.party === "supplier" ? "Supplier" : "Client", { label: "Total", className: "text-right" }, "Status", { label: C.dateLabel, className: "hidden md:table-cell" }, "Next step", ""]}>
             {shown.map((d) => (
               <tr key={d.id} className="hover:bg-surface-2/50" data-testid={`doc-row-${d.id}`}>
@@ -138,15 +137,14 @@ export default function Documents({ type }) {
                 <td className="td">{d.client_name || d.supplier_name}{d.responded_by && <p className="text-[11px] text-muted">by {d.responded_by}</p>}</td>
                 <td className="td text-right num font-semibold">{money(d.total, d.currency)}</td>
                 <td className="td">
-                  <select value={d.status} onChange={(e) => setStatus(d, e.target.value)} aria-label="Status" className={`chip cursor-pointer border-0 pr-5 appearance-none ${TONE[C.statuses[d.status][1]]}`}>
-                    {Object.entries(C.statuses).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}
+                  <select value={d.status} onChange={(e) => setStatus(d, e.target.value)} aria-label={tr("Status")} className={`chip cursor-pointer border-0 pr-5 appearance-none ${TONE[C.statuses[d.status][1]]}`}>
+                    {Object.entries(C.statuses).map(([k, [l]]) => <option key={k} value={k}>{tr(l)}</option>)}
                   </select>
                 </td>
                 <td className="td text-muted hidden md:table-cell">{d.valid_until ? date(d.valid_until) : "—"}</td>
                 <td className="td">
                   <div className="flex flex-wrap gap-1.5">
-                    {C.convert.map(([to, label]) => d.converted?.[to]
-                      ? <Badge key={to} tone="success">{d.converted[to].number}</Badge>
+                    {C.convert.map(([to, label]) => d.converted?.[to] ? <Badge key={to} tone="success">{d.converted[to].number}</Badge>
                       : !["declined", "cancelled"].includes(d.status) && (
                         <button key={to} onClick={() => convert(d, to, label)} className="chip bg-surface-2 text-ink hover:bg-brand-soft hover:text-brand" data-testid={`convert-${to}-${d.id}`}>
                           {label}<ArrowRight className="h-3 w-3" />
@@ -156,9 +154,9 @@ export default function Documents({ type }) {
                 <td className="td">
                   <div className="flex justify-end -mr-2">
                     <IconBtn icon={Send} label={type === "quote" ? "Send for approval" : "Email"} onClick={() => send(d)} />
-                    <IconBtn icon={Printer} label="Print / PDF" onClick={() => printDocument(d, biz, type)} />
-                    {!(type === "quote" && ["accepted", "declined"].includes(d.status)) && <IconBtn icon={Pencil} label="Edit" onClick={() => setEditing({ ...d, valid_until: d.valid_until || "" })} />}
-                    <IconBtn icon={Trash2} label="Delete" tone="danger" onClick={() => del(d)} />
+                    <IconBtn icon={Printer} label={tr("Print / PDF")} onClick={() => printDocument(d, biz, type)} />
+                    {!(type === "quote" && ["accepted", "declined"].includes(d.status)) && <IconBtn icon={Pencil} label={tr("Edit")} onClick={() => setEditing({ ...d, valid_until: d.valid_until || "" })} />}
+                    <IconBtn icon={Trash2} label={tr("Delete")} tone="danger" onClick={() => del(d)} />
                   </div>
                 </td>
               </tr>

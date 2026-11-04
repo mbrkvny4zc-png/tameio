@@ -7,6 +7,7 @@ import { money, relative, todayISO } from "@/lib/format";
 import { Badge, Button, Card, Field, Input, PageHeader, Segmented, Select } from "@/components/ui";
 import { ItemsEditor } from "@/components/ItemsEditor";
 import { ExpenseForm } from "@/components/ExpenseForm";
+import { translate as tr } from "@/lib/i18n";
 
 const MAX_SIDE = 2200;
 
@@ -63,7 +64,7 @@ function Review({ job, categories, clients, onDone, onSkip }) {
         </div>
         <div className="p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-brand" /><p className="font-bold">Check and save</p>
+            <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-brand" /><p className="font-bold">{tr("Check and save")}</p>
               <Badge tone={job.scan.extracted.confidence === "high" ? "success" : job.scan.extracted.confidence === "low" ? "danger" : "warn"}>{job.scan.extracted.confidence} confidence</Badge></div>
             <Segmented value={target} onChange={setTarget} options={[["expense", "Expense"], ["invoice", "Sales invoice"]]} />
           </div>
@@ -77,21 +78,21 @@ function Review({ job, categories, clients, onDone, onSkip }) {
           {target === "expense" ? <ExpenseForm draft={exp} categories={categories} onChange={setExp} /> : (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Client" className="col-span-2">
+                <Field label={tr("Client")} className="col-span-2">
                   <Select value={inv.client_id || ""} onChange={(e) => setInv({ ...inv, client_id: e.target.value || null })}>
-                    <option value="">— Use the name below —</option>
+                    <option value="">{tr("— Use the name below —")}</option>
                     {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </Select>
                 </Field>
-                {!inv.client_id && <Field label="Client name"><Input value={inv.client_name} onChange={(e) => setInv({ ...inv, client_name: e.target.value })} /></Field>}
-                {!inv.client_id && <Field label="Client ΑΦΜ"><Input value={inv.client_afm || ""} onChange={(e) => setInv({ ...inv, client_afm: e.target.value })} /></Field>}
-                <Field label="Issue date"><Input type="date" value={inv.issue_date} onChange={(e) => setInv({ ...inv, issue_date: e.target.value })} /></Field>
+                {!inv.client_id && <Field label={tr("Client name")}><Input value={inv.client_name} onChange={(e) => setInv({ ...inv, client_name: e.target.value })} /></Field>}
+                {!inv.client_id && <Field label={tr("Client ΑΦΜ")}><Input value={inv.client_afm || ""} onChange={(e) => setInv({ ...inv, client_afm: e.target.value })} /></Field>}
+                <Field label={tr("Issue date")}><Input type="date" value={inv.issue_date} onChange={(e) => setInv({ ...inv, issue_date: e.target.value })} /></Field>
               </div>
               <ItemsEditor items={inv.items} onChange={(items) => setInv({ ...inv, items })} taxRate={inv.tax_rate} onTaxRate={(tax_rate) => setInv({ ...inv, tax_rate })} />
             </div>
           )}
           <div className="flex justify-end gap-2 mt-6">
-            <Button variant="ghost" onClick={onSkip}>Skip</Button>
+            <Button variant="ghost" onClick={onSkip}>{tr("Skip")}</Button>
             <Button onClick={save} loading={busy} data-testid="scan-save">{target === "expense" ? "Save expense" : "Create draft invoice"}</Button>
           </div>
         </div>
@@ -105,6 +106,7 @@ export default function Scan() {
   const [categories, setCategories] = useState([]);
   const [clients, setClients] = useState([]);
   const [recent, setRecent] = useState([]);
+  const [pending, setPending] = useState([]);
   const [drag, setDrag] = useState(false);
   const camRef = useRef(null), fileRef = useRef(null);
   const working = useRef(false);
@@ -113,7 +115,18 @@ export default function Scan() {
     api.get("/expenses/categories").then(setCategories).catch(() => {});
     api.get("/clients").then(setClients).catch(() => {});
     api.get("/scans").then(setRecent).catch(() => {});
+    api.get("/scans/pending").then(setPending).catch(() => {});
   }, []);
+
+  // Documents that arrived by email (or earlier scans not saved yet) — open one for review.
+  const reviewPending = async (s) => {
+    let preview = null;
+    if (s.file?.content_type?.startsWith("image/")) {
+      try { preview = URL.createObjectURL(await api.blob(`/scans/${s.id}/file`)); } catch { preview = null; }
+    }
+    setPending((p) => p.filter((x) => x.id !== s.id));
+    setQueue((q) => [...q.filter((j) => j.id !== s.id), { id: s.id, file: { name: s.file?.filename || "document" }, preview, status: "ready", scan: s }]);
+  };
 
   const update = (id, patch) => setQueue((q) => q.map((j) => (j.id === id ? { ...j, ...patch } : j)));
 
@@ -146,11 +159,15 @@ export default function Scan() {
     if (jobs.length) setQueue((q) => [...q, ...jobs]);
   };
   const current = queue.find((j) => j.status === "ready");
-  const finish = (job, status) => { update(job.id, { status }); api.get("/scans").then(setRecent).catch(() => {}); };
+  const finish = (job, status) => {
+    update(job.id, { status });
+    api.get("/scans").then(setRecent).catch(() => {});
+    if (status === "skipped" && job.scan?.source === "email") api.post(`/scans/${job.scan.id}/dismiss`).catch(() => {});
+  };
 
   return (
     <div className="animate-in">
-      <PageHeader title="Scan" subtitle="Photograph or upload receipts and invoices — AI fills in the details, you check and save." />
+      <PageHeader title={tr("Scan")} subtitle={tr("Photograph or upload receipts and invoices — AI fills in the details, you check and save.")} />
 
       <div
         onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
@@ -158,17 +175,33 @@ export default function Scan() {
         className={`relative card border-2 border-dashed transition-colors px-6 py-10 sm:py-14 text-center ${drag ? "border-brand bg-brand-soft" : "border-line"}`}
         data-testid="dropzone">
         <div className="mx-auto h-16 w-16 rounded-3xl bg-gradient-to-br from-brand to-violet text-white flex items-center justify-center shadow-lift"><ScanLine className="h-7 w-7" /></div>
-        <p className="mt-5 text-lg font-bold">Drop receipts or invoices here</p>
-        <p className="text-sm text-muted mt-1">Photos (JPG, PNG, WebP) or PDFs · several at once is fine</p>
+        <p className="mt-5 text-lg font-bold">{tr("Drop receipts or invoices here")}</p>
+        <p className="text-sm text-muted mt-1">{tr("Photos (JPG, PNG, WebP) or PDFs · several at once is fine")}</p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <Button size="lg" onClick={() => camRef.current?.click()}><Camera className="h-5 w-5" />Take photo</Button>
-          <Button size="lg" variant="secondary" onClick={() => fileRef.current?.click()}><Upload className="h-5 w-5" />Upload files</Button>
+          <Button size="lg" onClick={() => camRef.current?.click()}><Camera className="h-5 w-5" />{tr("Take photo")}</Button>
+          <Button size="lg" variant="secondary" onClick={() => fileRef.current?.click()}><Upload className="h-5 w-5" />{tr("Upload files")}</Button>
         </div>
         <input ref={camRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
         <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple className="hidden" onChange={(e) => { add(e.target.files); e.target.value = ""; }} data-testid="scan-input" />
-        <p className="text-[11px] text-muted mt-6">Tips: flat surface, good light, the whole receipt in frame. Nothing is saved until you confirm.</p>
+        <p className="text-[11px] text-muted mt-6">{tr("Tips: flat surface, good light, the whole receipt in frame. Nothing is saved until you confirm.")}</p>
       </div>
 
+      {pending.length > 0 && (
+        <div className="mt-6 card p-4 sm:p-5" data-testid="scan-pending">
+          <p className="font-bold text-sm mb-3">Waiting for your review ({pending.length})</p>
+          <div className="divide-y divide-line">
+            {pending.map((s) => (
+              <button key={s.id} onClick={() => reviewPending(s)} className="w-full flex items-center gap-3 py-2.5 text-left hover:bg-surface-2/50 rounded-lg px-2 -mx-2">
+                <Sparkles className="h-4 w-4 text-brand shrink-0" />
+                <span className="flex-1 min-w-0"><span className="block text-sm font-medium truncate">{s.extracted?.issuer_name || s.file?.filename}</span>
+                  <span className="block text-[11px] text-muted truncate">{s.source === "email" ? `Email from ${s.email_from}` : "Scanned"} · {relative(s.created_at)}</span></span>
+                {s.extracted?.total_amount != null && <span className="num text-sm font-semibold">{money(s.extracted.total_amount)}</span>}
+                <span className="chip bg-brand-soft text-brand">{tr("Review")}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {queue.length > 0 && (
         <div className="mt-6 flex flex-wrap gap-2" data-testid="scan-queue">
           {queue.map((j) => (
@@ -177,7 +210,7 @@ export default function Scan() {
                 : j.status === "failed" ? <XCircle className="h-3.5 w-3.5 text-danger" />
                 : j.status === "ready" ? <Sparkles className="h-3.5 w-3.5 text-brand" /> : <CheckCircle2 className="h-3.5 w-3.5 text-success" />}
               <span className="truncate">{j.file.name}</span>
-              <span className="text-muted shrink-0">{{ waiting: "queued", scanning: "reading…", ready: "review", failed: "failed", saved: "saved", skipped: "skipped" }[j.status]}</span>
+              <span className="text-muted shrink-0">{tr({ waiting: "queued", scanning: "reading…", ready: "review", failed: "failed", saved: "saved", skipped: "skipped" }[j.status])}</span>
             </div>
           ))}
         </div>
@@ -192,8 +225,8 @@ export default function Scan() {
           <div className="relative mx-auto h-24 w-20 rounded-lg border border-line bg-surface-2 overflow-hidden">
             <div className="absolute inset-x-0 h-0.5 bg-brand shadow-[0_0_14px_hsl(var(--brand))] animate-[scan_1.6s_ease-in-out_infinite]" />
           </div>
-          <p className="mt-4 font-semibold">Reading your document…</p>
-          <p className="text-sm text-muted">Finding the vendor, ΑΦΜ, VAT and totals. This takes a few seconds.</p>
+          <p className="mt-4 font-semibold">{tr("Reading your document…")}</p>
+          <p className="text-sm text-muted">{tr("Finding the vendor, ΑΦΜ, VAT and totals. This takes a few seconds.")}</p>
           <style>{"@keyframes scan{0%{top:6%}50%{top:90%}100%{top:6%}}"}</style>
         </Card>
       )}
@@ -206,7 +239,7 @@ export default function Scan() {
 
       {recent.length > 0 && (
         <div className="mt-10">
-          <p className="font-bold mb-3">Recent scans</p>
+          <p className="font-bold mb-3">{tr("Recent scans")}</p>
           <div className="card divide-y divide-line">
             {recent.slice(0, 8).map((r) => (
               <div key={r.id} className="flex items-center gap-3 px-4 py-3 text-sm">

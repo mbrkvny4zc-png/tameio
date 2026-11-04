@@ -2,6 +2,7 @@ import { forwardRef } from "react";
 import * as D from "@radix-ui/react-dialog";
 import { clsx } from "clsx";
 import { Loader2, X } from "lucide-react";
+import { translate as tr } from "@/lib/i18n";
 
 export const cx = clsx;
 
@@ -121,7 +122,7 @@ export function Modal({ open, onClose, title, description, children, wide, foote
               <D.Title className="text-lg font-bold font-display">{title}</D.Title>
               {description ? <D.Description className="text-sm text-muted mt-1">{description}</D.Description> : <D.Description className="sr-only">{title}</D.Description>}
             </div>
-            <D.Close className="p-1.5 -m-1 rounded-lg text-muted hover:text-ink hover:bg-surface-2" aria-label="Close"><X className="h-4 w-4" /></D.Close>
+            <D.Close className="p-1.5 -m-1 rounded-lg text-muted hover:text-ink hover:bg-surface-2" aria-label={tr("Close")}><X className="h-4 w-4" /></D.Close>
           </div>
           {children}
           {footer && <div className="flex justify-end gap-2 mt-6">{footer}</div>}
@@ -143,7 +144,7 @@ export function Sheet({ open, onClose, title, description, children, footer, wid
               <D.Title className="text-lg font-bold font-display truncate">{title}</D.Title>
               {description ? <D.Description className="text-sm text-muted mt-0.5">{description}</D.Description> : <D.Description className="sr-only">{title}</D.Description>}
             </div>
-            <D.Close className="p-1.5 rounded-lg text-muted hover:text-ink hover:bg-surface-2" aria-label="Close"><X className="h-5 w-5" /></D.Close>
+            <D.Close className="p-1.5 rounded-lg text-muted hover:text-ink hover:bg-surface-2" aria-label={tr("Close")}><X className="h-5 w-5" /></D.Close>
           </div>
           <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5">{children}</div>
           {footer && <div className="px-5 sm:px-6 py-4 border-t border-line flex flex-wrap justify-end gap-2 bg-surface">{footer}</div>}
@@ -159,7 +160,7 @@ export function Segmented({ value, onChange, options, className }) {
       {options.map(([k, label]) => (
         <button key={k} role="tab" aria-selected={value === k} onClick={() => onChange(k)}
           className={cx("px-3 h-8 rounded-lg text-xs font-semibold transition-colors", value === k ? "bg-surface text-ink shadow-card" : "text-muted hover:text-ink")}>
-          {label}
+          {tr(label)}
         </button>
       ))}
     </div>
@@ -171,7 +172,7 @@ export function Table({ head, children, className }) {
     <div className={cx("card overflow-hidden", className)}>
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-surface-2/60 border-b border-line"><tr>{head.map((h, i) => <th key={i} className={cx("table-head", h?.className)}>{h?.label ?? h}</th>)}</tr></thead>
+          <thead className="bg-surface-2/60 border-b border-line"><tr>{head.map((h, i) => <th key={i} className={cx("table-head", h?.className)}>{tr(h?.label ?? h)}</th>)}</tr></thead>
           <tbody className="divide-y divide-line">{children}</tbody>
         </table>
       </div>

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { FilePlus2, FileText, Link2, Pencil, Printer, RotateCcw, Search, Send, Trash2, Repeat, Paperclip } from "lucide-react";
+import { BellRing, FilePlus2, FileText, Link2, Pencil, Printer, RotateCcw, Search, Send, Trash2, Repeat, Paperclip } from "lucide-react";
 import { api, openFile } from "@/lib/api";
 import { date, lineTotals, money, todayISO } from "@/lib/format";
 import { printDocument } from "@/lib/print";
 import { Badge, Button, Empty, Field, IconBtn, Input, Modal, PageHeader, PageLoader, Segmented, Select, Sheet, Table, Textarea } from "@/components/ui";
 import { ClientPicker, EMPTY_ITEM, ItemsEditor } from "@/components/ItemsEditor";
 import { MyDataBadge, MyDataDialog } from "@/components/MyDataDialog";
+import { translate as tr } from "@/lib/i18n";
 
 const STATUS = {
   draft: ["Draft", "neutral"], sent: ["Sent", "brand"], paid: ["Paid", "success"], overdue: ["Overdue", "danger"], credited: ["Credit note", "violet"],
@@ -39,20 +40,20 @@ export function InvoiceEditor({ value, onClose, onSaved, clients, title }) {
   return (
     <Sheet open={!!f} onClose={onClose} title={title || (f.id ? `Edit ${f.number}` : "New invoice")} width="max-w-3xl"
       footer={<>
-        <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        {!f.id && <Button variant="secondary" onClick={() => save("draft")} loading={busy}>Save draft</Button>}
+        <Button variant="secondary" onClick={onClose}>{tr("Cancel")}</Button>
+        {!f.id && <Button variant="secondary" onClick={() => save("draft")} loading={busy}>{tr("Save draft")}</Button>}
         <Button onClick={() => save(f.id ? undefined : "sent")} loading={busy} disabled={t.total <= 0} data-testid="invoice-save">{f.id ? "Save changes" : "Create invoice"}</Button>
       </>}>
       <div className="space-y-6" data-testid="invoice-editor">
         <ClientPicker clients={clients} value={f} onChange={setF} />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Field label="Issue date"><Input type="date" value={f.issue_date || ""} onChange={(e) => setF({ ...f, issue_date: e.target.value })} /></Field>
-          <Field label="Due date"><Input type="date" value={f.due_date || ""} onChange={(e) => setF({ ...f, due_date: e.target.value })} /></Field>
-          <Field label="Currency"><Select value={f.currency} onChange={(e) => setF({ ...f, currency: e.target.value })}><option>EUR</option><option>USD</option><option>GBP</option></Select></Field>
-          <Field label="Repeat"><Select value={f.recurring} onChange={(e) => setF({ ...f, recurring: e.target.value })}><option value="none">Never</option><option value="monthly">Monthly</option></Select></Field>
+          <Field label={tr("Issue date")}><Input type="date" value={f.issue_date || ""} onChange={(e) => setF({ ...f, issue_date: e.target.value })} /></Field>
+          <Field label={tr("Due date")}><Input type="date" value={f.due_date || ""} onChange={(e) => setF({ ...f, due_date: e.target.value })} /></Field>
+          <Field label={tr("Currency")}><Select value={f.currency} onChange={(e) => setF({ ...f, currency: e.target.value })}><option>{tr("EUR")}</option><option>{tr("USD")}</option><option>{tr("GBP")}</option></Select></Field>
+          <Field label={tr("Repeat")}><Select value={f.recurring} onChange={(e) => setF({ ...f, recurring: e.target.value })}><option value="none">{tr("Never")}</option><option value="monthly">{tr("Monthly")}</option></Select></Field>
         </div>
         <ItemsEditor items={f.items} onChange={(items) => setF({ ...f, items })} taxRate={f.tax_rate} onTaxRate={(tax_rate) => setF({ ...f, tax_rate })} currency={f.currency} />
-        <Field label="Notes (printed on the invoice)"><Textarea value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder="e.g. Thank you for your business" /></Field>
+        <Field label={tr("Notes (printed on the invoice)")}><Textarea value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder={tr("e.g. Thank you for your business")} /></Field>
       </div>
     </Sheet>
   );
@@ -80,7 +81,7 @@ function CreditNoteDialog({ invoice, onClose, onCreated }) {
   return (
     <Modal open={!!invoice} onClose={onClose} title={`Credit note for ${invoice.number}`}
       description={`For refunds, discounts or returns after the invoice was reported. Linked to ΜΑΡΚ ${invoice.mydata?.mark}.`}
-      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={create} loading={busy} disabled={!reason.trim() || t.net <= 0} data-testid="credit-create">Create credit note · {money(t.total)}</Button></>}>
+      footer={<><Button variant="secondary" onClick={onClose}>{tr("Cancel")}</Button><Button onClick={create} loading={busy} disabled={!reason.trim() || t.net <= 0} data-testid="credit-create">Create credit note · {money(t.total)}</Button></>}>
       <div className="space-y-4" data-testid="credit-dialog">
         <Segmented value={mode} onChange={setMode} options={[["full", "Full amount"], ["partial", "Some lines"]]} />
         {mode === "partial" && (
@@ -88,14 +89,14 @@ function CreditNoteDialog({ invoice, onClose, onCreated }) {
             {lines.map((l, i) => (
               <div key={i} className="grid grid-cols-[1fr_72px_96px] gap-2">
                 <Input value={l.description} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, description: e.target.value } : x)))} />
-                <Input type="number" min="0" step="any" className="text-right" value={l.qty} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, qty: e.target.value } : x)))} aria-label="Quantity" />
-                <Input type="number" min="0" step="any" className="text-right" value={l.unit_price} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, unit_price: e.target.value } : x)))} aria-label="Unit price" />
+                <Input type="number" min="0" step="any" className="text-right" value={l.qty} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, qty: e.target.value } : x)))} aria-label={tr("Quantity")} />
+                <Input type="number" min="0" step="any" className="text-right" value={l.unit_price} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, unit_price: e.target.value } : x)))} aria-label={tr("Unit price")} />
               </div>
             ))}
-            <p className="text-[11px] text-muted">Set a quantity to 0 to leave that line out.</p>
+            <p className="text-[11px] text-muted">{tr("Set a quantity to 0 to leave that line out.")}</p>
           </div>
         )}
-        <Field label="Reason (printed on the credit note)"><Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. 2 units returned" data-testid="credit-reason" /></Field>
+        <Field label={tr("Reason (printed on the credit note)")}><Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder={tr("e.g. 2 units returned")} data-testid="credit-reason" /></Field>
       </div>
     </Modal>
   );
@@ -140,29 +141,31 @@ export default function Invoices() {
     try { await api.put(`/invoices/${inv.id}/status`, { status }); load(); } catch (e) { toast.error(e.message); }
   };
   const send = async (inv) => {
-    if (!inv.client_email) return toast.error("Add the client's email first (edit the invoice or the client)");
+    if (!inv.client_email) return toast.error(tr("Add the client's email first (edit the invoice or the client)"));
     try {
       const r = await api.post(`/invoices/${inv.id}/send`);
       if (r.emailed) toast.success(`Sent to ${inv.client_email}`);
-      else { await navigator.clipboard?.writeText(r.url).catch(() => {}); toast.message("Email isn't set up on the server — link copied instead", { description: r.url }); }
+      else { await navigator.clipboard?.writeText(r.url).catch(() => {}); toast.message(tr("Email isn't set up on the server — link copied instead"), { description: r.url }); }
       load();
     } catch (e) { toast.error(e.message); }
   };
+  const remind = async (inv) => {
+    try { const r = await api.post(`/invoices/${inv.id}/remind`); r.emailed ? toast.success(`Reminder sent to ${inv.client_email}`) : toast.message(tr("Email isn't set up on the server — reminder recorded")); load(); }
+    catch (e) { toast.error(e.message); }
+  };
   const share = async (inv) => {
-    try { const r = await api.post(`/invoices/${inv.id}/share`); await navigator.clipboard?.writeText(r.url); toast.success("Invoice link copied"); }
+    try { const r = await api.post(`/invoices/${inv.id}/share`); await navigator.clipboard?.writeText(r.url); toast.success(tr("Invoice link copied")); }
     catch (e) { toast.error(e.message); }
   };
   const del = async (inv) => {
     if (!window.confirm(`Delete ${inv.number}?`)) return;
-    try { await api.del(`/invoices/${inv.id}`); toast.success("Deleted"); load(); } catch (e) { toast.error(e.message); }
+    try { await api.del(`/invoices/${inv.id}`); toast.success(tr("Deleted")); load(); } catch (e) { toast.error(e.message); }
   };
-  const print = async (inv) => { if (!(await printDocument(inv, biz, inv.kind === "credit_note" ? "credit_note" : "invoice"))) toast.error("Allow pop-ups to print"); };
+  const print = async (inv) => { if (!(await printDocument(inv, biz, inv.kind === "credit_note" ? "credit_note" : "invoice"))) toast.error(tr("Allow pop-ups to print")); };
 
-  if (!list) return <PageLoader />;
-  return (
-    <div className="animate-in">
-      <PageHeader title="Invoices" subtitle="Bill clients, get paid, and report to myDATA."
-        actions={<Button onClick={() => setEditing(blankInvoice(biz))} data-testid="new-invoice"><FilePlus2 className="h-4 w-4" />New invoice</Button>} />
+  if (!list) return <PageLoader />; return (<div className="animate-in">
+      <PageHeader title={tr("Invoices")} subtitle={tr("Bill clients, get paid, and report to myDATA.")}
+        actions={<Button onClick={() => setEditing(blankInvoice(biz))} data-testid="new-invoice"><FilePlus2 className="h-4 w-4" />{tr("New invoice")}</Button>} />
 
       <div className="grid grid-cols-3 gap-3 mb-5">
         {[["Unpaid", totals.unpaid, ""], ["Overdue", totals.overdue, "text-danger"], ["Paid", totals.paid, "text-success"]].map(([l, v, c]) => (
@@ -172,12 +175,12 @@ export default function Invoices() {
 
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between mb-4">
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0"><Segmented value={filter} onChange={setFilter} options={FILTERS} /></div>
-        <div className="relative sm:w-64"><Search className="h-4 w-4 absolute left-3 top-3 text-muted" /><Input className="pl-9" placeholder="Search invoices" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+        <div className="relative sm:w-64"><Search className="h-4 w-4 absolute left-3 top-3 text-muted" /><Input className="pl-9" placeholder={tr("Search invoices")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
       </div>
 
       {list.length === 0 ? (
-        <Empty icon={FileText} title="No invoices yet" text="Create one from scratch, convert an accepted quote, or scan a paper invoice."
-          action={<Button onClick={() => setEditing(blankInvoice(biz))}><FilePlus2 className="h-4 w-4" />New invoice</Button>} />
+        <Empty icon={FileText} title={tr("No invoices yet")} text={tr("Create one from scratch, convert an accepted quote, or scan a paper invoice.")}
+          action={<Button onClick={() => setEditing(blankInvoice(biz))}><FilePlus2 className="h-4 w-4" />{tr("New invoice")}</Button>} />
       ) : (
         <Table head={["Number", "Client", { label: "Total", className: "text-right" }, "Status", { label: "Due", className: "hidden md:table-cell" }, "myDATA", ""]}>
           {shown.map((i) => (
@@ -188,13 +191,13 @@ export default function Invoices() {
                 {i.recurring === "monthly" && <Repeat className="inline h-3 w-3 ml-1 text-violet" />}
                 {i.file && <Paperclip className="inline h-3 w-3 ml-1 text-muted" />}
               </td>
-              <td className="td"><p className="font-medium">{i.client_name}</p><p className="text-[11px] text-muted">{date(i.issue_date)}</p></td>
+              <td className="td"><p className="font-medium">{i.client_name}</p><p className="text-[11px] text-muted">{date(i.issue_date)}{i.paid_via && ` · paid by ${i.paid_via === "viva" ? "card" : "bank"}`}{i.reminders?.length ? ` · ${i.reminders.length} reminder(s)` : ""}</p></td>
               <td className={`td text-right num font-semibold ${i.kind === "credit_note" ? "text-violet" : ""}`}>{i.kind === "credit_note" ? "−" : ""}{money(i.total, i.currency)}</td>
               <td className="td">
-                {i.kind === "credit_note" ? <Badge tone="violet">Credit note</Badge> : (
-                  <select value={i.status} onChange={(e) => setStatus(i, e.target.value)} aria-label="Status"
+                {i.kind === "credit_note" ? <Badge tone="violet">{tr("Credit note")}</Badge> : (
+                  <select value={i.status} onChange={(e) => setStatus(i, e.target.value)} aria-label={tr("Status")}
                     className={`chip cursor-pointer border-0 pr-5 appearance-none ${{ neutral: "bg-surface-2 text-muted", brand: "bg-brand-soft text-brand", success: "bg-success/10 text-success", danger: "bg-danger/10 text-danger" }[STATUS[i.status][1]]}`}>
-                    {["draft", "sent", "paid", "overdue"].map((s) => <option key={s} value={s}>{STATUS[s][0]}</option>)}
+                    {["draft", "sent", "paid", "overdue"].map((s) => <option key={s} value={s}>{tr(STATUS[s][0])}</option>)}
                   </select>
                 )}
               </td>
@@ -202,18 +205,19 @@ export default function Invoices() {
               <td className="td"><MyDataBadge inv={i} onClick={() => setMydataInv(i)} /></td>
               <td className="td">
                 <div className="flex justify-end -mr-2">
-                  {i.kind !== "credit_note" && i.mydata?.state === "transmitted" && <IconBtn icon={RotateCcw} label="Issue credit note" onClick={() => setCreditFor(i)} data-testid={`credit-${i.id}`} />}
-                  <IconBtn icon={Send} label="Email to client" onClick={() => send(i)} />
-                  {i.status !== "draft" && <IconBtn icon={Link2} label="Copy client link" onClick={() => share(i)} />}
-                  <IconBtn icon={Printer} label="Print / PDF" onClick={() => print(i)} />
-                  {i.file && <IconBtn icon={Paperclip} label="Original scan" onClick={() => openFile(`/scans/${i.scan_id}/file`).catch(() => toast.error("File not available"))} />}
-                  {!locked(i) && i.kind !== "credit_note" && <IconBtn icon={Pencil} label="Edit" onClick={() => setEditing({ ...i, due_date: i.due_date || "" })} />}
-                  {!locked(i) && <IconBtn icon={Trash2} label="Delete" tone="danger" onClick={() => del(i)} />}
+                  {i.kind !== "credit_note" && i.mydata?.state === "transmitted" && <IconBtn icon={RotateCcw} label={tr("Issue credit note")} onClick={() => setCreditFor(i)} data-testid={`credit-${i.id}`} />}
+                  {["sent", "overdue"].includes(i.status) && i.client_email && <IconBtn icon={BellRing} label={tr("Send payment reminder")} onClick={() => remind(i)} />}
+                  <IconBtn icon={Send} label={tr("Email to client")} onClick={() => send(i)} />
+                  {i.status !== "draft" && <IconBtn icon={Link2} label={tr("Copy client link")} onClick={() => share(i)} />}
+                  <IconBtn icon={Printer} label={tr("Print / PDF")} onClick={() => print(i)} />
+                  {i.file && <IconBtn icon={Paperclip} label={tr("Original scan")} onClick={() => openFile(`/scans/${i.scan_id}/file`).catch(() => toast.error(tr("File not available")))} />}
+                  {!locked(i) && i.kind !== "credit_note" && <IconBtn icon={Pencil} label={tr("Edit")} onClick={() => setEditing({ ...i, due_date: i.due_date || "" })} />}
+                  {!locked(i) && <IconBtn icon={Trash2} label={tr("Delete")} tone="danger" onClick={() => del(i)} />}
                 </div>
               </td>
             </tr>
           ))}
-          {shown.length === 0 && <tr><td colSpan={7} className="text-center text-sm text-muted py-10">Nothing matches this filter.</td></tr>}
+          {shown.length === 0 && <tr><td colSpan={7} className="text-center text-sm text-muted py-10">{tr("Nothing matches this filter.")}</td></tr>}
         </Table>
       )}
 

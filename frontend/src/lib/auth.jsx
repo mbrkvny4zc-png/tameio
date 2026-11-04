@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, setOrg } from "@/lib/api";
 
 const AuthCtx = createContext(null);
 
@@ -11,9 +11,9 @@ export function AuthProvider({ children }) {
   }, []);
   useEffect(() => { refresh(); }, [refresh]);
 
-  const login = async (email, password) => setUser((await api.post("/auth/login", { email, password })).user);
+  const login = async (email, password, code) => setUser((await api.post("/auth/login", { email, password, ...(code ? { code } : {}) })).user);
   const signup = async (payload) => setUser((await api.post("/auth/signup", payload)).user);
-  const logout = async () => { try { await api.post("/auth/logout"); } finally { setUser(null); } };
+  const logout = async () => { try { await api.post("/auth/logout"); } finally { setOrg(""); setUser(null); } };
 
   return <AuthCtx.Provider value={{ user, login, signup, logout, refresh }}>{children}</AuthCtx.Provider>;
 }

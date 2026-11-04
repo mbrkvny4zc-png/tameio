@@ -1,10 +1,12 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { useOrg } from "@/lib/org";
 import { useAuth } from "@/lib/auth";
 import { PageLoader } from "@/components/ui";
 import AppShell from "@/components/AppShell";
 import Landing from "@/pages/Landing";
-import { Login, Signup } from "@/pages/Auth";
+import { AcceptInvite, Login, Signup } from "@/pages/Auth";
+import { translate as tr } from "@/lib/i18n";
 
 const Dashboard = lazy(() => import("@/pages/app/Dashboard"));
 const Invoices = lazy(() => import("@/pages/app/Invoices"));
@@ -16,6 +18,13 @@ const Suppliers = lazy(() => import("@/pages/app/Suppliers"));
 const Reports = lazy(() => import("@/pages/app/Reports"));
 const MyData = lazy(() => import("@/pages/app/MyData"));
 const Settings = lazy(() => import("@/pages/app/Settings"));
+const Practice = lazy(() => import("@/pages/app/Practice"));
+const Received = lazy(() => import("@/pages/app/Received"));
+const Bank = lazy(() => import("@/pages/app/Bank"));
+const Calendar = lazy(() => import("@/pages/app/Calendar"));
+const Requests = lazy(() => import("@/pages/app/Requests"));
+const Privacy = lazy(() => import("@/pages/Privacy"));
+const PaidReturn = lazy(() => import("@/pages/public/PaidReturn"));
 const PublicInvoice = lazy(() => import("@/pages/public/PublicInvoice"));
 const PublicQuote = lazy(() => import("@/pages/public/PublicQuote"));
 const SupplierPortal = lazy(() => import("@/pages/public/SupplierPortal"));
@@ -23,9 +32,14 @@ const SupplierPortal = lazy(() => import("@/pages/public/SupplierPortal"));
 function RequireAuth({ children }) {
   const { user } = useAuth();
   const loc = useLocation();
-  if (user === undefined) return <PageLoader />;
-  if (!user) return <Navigate to={`/login?next=${encodeURIComponent(loc.pathname + loc.search)}`} replace />;
+  if (user === undefined) return <PageLoader />; if (!user) return <Navigate to={`/login?next=${encodeURIComponent(loc.pathname + loc.search)}`} replace />;
   return children;
+}
+
+function Home() {
+  const { current } = useOrg();
+  if (!current) return <PageLoader />;
+  return current.kind === "practice" ? <Navigate to="/app/practice" replace /> : <Dashboard />;
 }
 
 export default function App() {
@@ -35,11 +49,19 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/invite/:token" element={<AcceptInvite />} />
+        <Route path="/i/paid" element={<PaidReturn />} />
         <Route path="/i/:token" element={<PublicInvoice />} />
         <Route path="/q/:token" element={<PublicQuote />} />
         <Route path="/s/:token" element={<SupplierPortal />} />
         <Route path="/app" element={<RequireAuth><AppShell /></RequireAuth>}>
-          <Route index element={<Dashboard />} />
+          <Route index element={<Home />} />
+          <Route path="practice" element={<Practice />} />
+          <Route path="received" element={<Received />} />
+          <Route path="bank" element={<Bank />} />
+          <Route path="calendar" element={<Calendar />} />
+          <Route path="requests" element={<Requests />} />
           <Route path="invoices" element={<Invoices />} />
           <Route path="quotes" element={<Documents key="quote" type="quote" />} />
           <Route path="sales-orders" element={<Documents key="sales_order" type="sales_order" />} />
@@ -52,7 +74,7 @@ export default function App() {
           <Route path="mydata" element={<MyData />} />
           <Route path="settings" element={<Settings />} />
         </Route>
-        <Route path="*" element={<div className="min-h-screen flex flex-col items-center justify-center gap-3"><p className="text-6xl font-display font-extrabold text-brand">404</p><p className="text-muted">This page doesn't exist.</p><a className="text-brand font-semibold" href="/">Go home</a></div>} />
+        <Route path="*" element={<div className="min-h-screen flex flex-col items-center justify-center gap-3"><p className="text-6xl font-display font-extrabold text-brand">404</p><p className="text-muted">{tr("This page doesn't exist.")}</p><a className="text-brand font-semibold" href="/">{tr("Go home")}</a></div>} />
       </Routes>
     </Suspense>
   );

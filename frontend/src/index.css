@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 220 33% 98%;
+  --surface: 0 0% 100%;
+  --surface-2: 220 30% 96%;
+  --line: 220 18% 90%;
+  --ink: 224 40% 10%;
+  --muted: 222 12% 44%;
+  --brand: 224 76% 48%;
+  --brand-soft: 224 100% 96%;
+  --success: 160 70% 34%;
+  --warn: 32 92% 40%;
+  --danger: 350 72% 48%;
+  --violet: 262 58% 52%;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --bg: 224 30% 7%;
+    --surface: 224 26% 10%;
+    --surface-2: 224 22% 14%;
+    --line: 224 18% 20%;
+    --ink: 220 30% 96%;
+    --muted: 220 12% 64%;
+    --brand: 224 90% 64%;
+    --brand-soft: 224 50% 18%;
+    --success: 158 60% 50%;
+    --warn: 38 92% 58%;
+    --danger: 350 85% 64%;
+    --violet: 262 80% 72%;
+    color-scheme: dark;
+  }
+}
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+    font-feature-settings: "cv11", "ss01";
+    text-rendering: optimizeLegibility;
+  }
+  h1, h2, h3 { @apply font-display tracking-tight; }
+  .num { font-variant-numeric: tabular-nums; }
+  ::selection { background: hsl(var(--brand) / 0.18); }
+  :focus-visible { outline: 2px solid hsl(var(--brand)); outline-offset: 2px; border-radius: 6px; }
+}
+
+@layer components {
+  .card { @apply bg-surface border border-line rounded-2xl shadow-card; }
+  .input {
+    @apply w-full h-10 px-3 rounded-xl bg-surface border border-line text-sm text-ink placeholder:text-muted/70
+      transition-shadow focus:outline-none focus:border-brand focus:shadow-glow disabled:opacity-60;
+  }
+  .label { @apply block text-xs font-medium text-muted mb-1.5; }
+  .chip { @apply inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap; }
+  .table-head { @apply text-left text-[11px] font-semibold uppercase tracking-wider text-muted px-4 py-3; }
+  .td { @apply px-4 py-3 text-sm; }
+  .hairline { @apply border-line; }
+}
+
+/* Thin, unobtrusive scrollbars */
+* { scrollbar-width: thin; scrollbar-color: hsl(var(--line)) transparent; }
+
+@media print {
+  .no-print { display: none !important; }
+}

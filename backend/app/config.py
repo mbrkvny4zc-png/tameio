@@ -1,0 +1,29 @@
+"""Runtime configuration, read once from the environment."""
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(ROOT / ".env")
+
+APP_NAME = os.environ.get("APP_NAME", "Tameio")
+MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+DB_NAME = os.environ.get("DB_NAME", "tameio")
+PUBLIC_URL = os.environ.get("PUBLIC_URL", "http://localhost:5173").rstrip("/")
+CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", PUBLIC_URL).split(",") if o.strip()]
+UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", str(ROOT / "uploads")))
+
+SESSION_DAYS = int(os.environ.get("SESSION_DAYS", "30"))
+COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "false").lower() == "true"
+
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "no-reply@example.com")
+
+# AI document scanning (Anthropic). Leave unset to disable scanning.
+ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-5-5")
+AI_SCAN_ENABLED = os.environ.get("AI_SCAN_ENABLED", "true").lower() == "true"
+
+MYDATA_ENCRYPTION_KEY = os.environ.get("MYDATA_ENCRYPTION_KEY", "")
+
+SCHEDULER_ENABLED = os.environ.get("SCHEDULER_ENABLED", "true").lower() == "true"

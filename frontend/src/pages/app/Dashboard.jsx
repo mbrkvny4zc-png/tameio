@@ -48,13 +48,13 @@ function Setup({ biz, mydata, invoices, expenses, suppliers }) {
   ];
   const done = steps.filter((s) => s[1]).length; if (done === steps.length) return null; return (<Card className="p-5 sm:p-6 mb-6 bg-gradient-to-br from-brand-soft to-surface">
       <div className="flex items-center justify-between gap-3">
-        <div><p className="font-bold">{tr("Get set up")}</p><p className="text-sm text-muted">{done} of {steps.length} done</p></div>
+        <div><p className="font-bold">{tr("Get set up")}</p><p className="text-sm text-muted">{tr("{a} of {b} done", { a: done, b: steps.length })}</p></div>
         <div className="h-2 w-32 rounded-full bg-line overflow-hidden"><div className="h-full bg-brand transition-all" style={{ width: `${(done / steps.length) * 100}%` }} /></div>
       </div>
       <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-5 gap-2">
         {steps.map(([t, ok, to]) => (
           <Link key={t} to={to} className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm border ${ok ? "border-transparent text-muted line-through" : "border-line bg-surface hover:border-brand/40"}`}>
-            {ok ? <CheckCircle2 className="h-4 w-4 text-success shrink-0" /> : <Circle className="h-4 w-4 text-muted shrink-0" />}{t}
+            {ok ? <CheckCircle2 className="h-4 w-4 text-success shrink-0" /> : <Circle className="h-4 w-4 text-muted shrink-0" />}{tr(t)}
           </Link>
         ))}
       </div>
@@ -77,8 +77,8 @@ export default function Dashboard() {
   if (d === null) return <PageLoader />; if (d === false) return <p className="text-muted">{tr("Couldn't load your dashboard. Refresh to try again.")}</p>;
   const { summary: s, attention: a } = d;
   const hour = new Date().getHours();
-  const greet = hour < 12 ? "Καλημέρα" : hour < 18 ? "Good afternoon" : "Καλησπέρα";
-  const monthName = new Date().toLocaleDateString("en-GB", { month: "long" });
+  const greet = t(hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening");
+  const monthName = new Date().toLocaleDateString(lang === "el" ? "el-GR" : "en-GB", { month: "long" });
 
   const openReq = (d.requests || []).filter((r) => r.status === "open");
   const reqItems = openReq.reduce((n, r) => n + r.items.filter((i) => i.status !== "done").length, 0);
@@ -86,13 +86,13 @@ export default function Dashboard() {
   const alerts = [
     reqItems && [ReceiptText, "brand", t("Your accountant needs {n} receipt(s)", { n: reqItems }), "/app/requests"],
     nextTax && [Landmark, nextTax.days_left <= 7 ? "danger" : "warn", `${lang === "el" ? nextTax.title : nextTax.title_en} — ${nextTax.days_left === 0 ? t("today") : t("in {n} days", { n: nextTax.days_left })}${nextTax.estimate != null ? ` · ${money(nextTax.estimate)}` : ""}`, "/app/calendar"],
-    a.overdue_invoices && [AlertTriangle, "danger", `${a.overdue_invoices} overdue invoice${a.overdue_invoices > 1 ? "s" : ""}`, "/app/invoices?filter=overdue"],
-    a.mydata_unreported && [ShieldCheck, "warn", `${a.mydata_unreported} invoice${a.mydata_unreported > 1 ? "s" : ""} not reported to myDATA`, "/app/invoices?filter=unreported"],
-    a.suppliers_blocked && [Truck, "danger", `${a.suppliers_blocked} supplier${a.suppliers_blocked > 1 ? "s" : ""} missing documents`, "/app/suppliers?filter=blocked"],
-    a.suppliers_expiring && [Clock, "warn", `${a.suppliers_expiring} supplier document${a.suppliers_expiring > 1 ? "s" : ""} expiring soon`, "/app/suppliers?filter=attention"],
-    a.quotes_open && [FileSignature, "brand", `${a.quotes_open} quote${a.quotes_open > 1 ? "s" : ""} awaiting a reply`, "/app/quotes"],
-    a.unpaid_bills && [ReceiptText, "neutral", `${a.unpaid_bills} unpaid bill${a.unpaid_bills > 1 ? "s" : ""}`, "/app/expenses?filter=unpaid"],
-    a.draft_invoices && [FilePlus2, "neutral", `${a.draft_invoices} draft invoice${a.draft_invoices > 1 ? "s" : ""}`, "/app/invoices?filter=draft"],
+    a.overdue_invoices && [AlertTriangle, "danger", t("Overdue invoices: {n}", { n: a.overdue_invoices }), "/app/invoices?filter=overdue"],
+    a.mydata_unreported && [ShieldCheck, "warn", t("Not reported to myDATA: {n}", { n: a.mydata_unreported }), "/app/invoices?filter=unreported"],
+    a.suppliers_blocked && [Truck, "danger", t("Suppliers missing documents: {n}", { n: a.suppliers_blocked }), "/app/suppliers?filter=blocked"],
+    a.suppliers_expiring && [Clock, "warn", t("Supplier documents expiring soon: {n}", { n: a.suppliers_expiring }), "/app/suppliers?filter=attention"],
+    a.quotes_open && [FileSignature, "brand", t("Quotes awaiting a reply: {n}", { n: a.quotes_open }), "/app/quotes"],
+    a.unpaid_bills && [ReceiptText, "neutral", t("Unpaid bills: {n}", { n: a.unpaid_bills }), "/app/expenses?filter=unpaid"],
+    a.draft_invoices && [FilePlus2, "neutral", t("Draft invoices: {n}", { n: a.draft_invoices }), "/app/invoices?filter=draft"],
   ].filter(Boolean);
   const recent = [
     ...d.invoices.slice(0, 6).map((i) => ({ id: i.id, when: i.created_at, title: `${i.number} · ${i.client_name}`, amount: (i.kind === "credit_note" ? -1 : 1) * i.total, type: i.kind === "credit_note" ? "Credit note" : "Invoice", to: "/app/invoices" })),
@@ -101,7 +101,7 @@ export default function Dashboard() {
       <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
         <div>
           <p className="text-sm text-muted">{greet}, {user?.name?.split(" ")[0]}</p>
-          <h1 className="text-2xl sm:text-[28px] font-bold">Here's {monthName} so far</h1>
+          <h1 className="text-2xl sm:text-[28px] font-bold">{t("Here's {month} so far", { month: monthName })}</h1>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link to="/app/scan" className="h-10 px-4 inline-flex items-center gap-2 rounded-xl bg-brand text-white text-sm font-semibold hover:brightness-110"><ScanLine className="h-4 w-4" />{tr("Scan receipt")}</Link>
@@ -113,10 +113,10 @@ export default function Dashboard() {
       <Setup biz={d.biz} mydata={d.mydata} invoices={d.invoices.length} expenses={d.expenses.length} suppliers={d.suppliers.length} />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Stat label={tr("Income (net)")} value={money(s.income.net)} sub={`${money(s.income.collected)} collected`} icon={TrendingUp} />
-        <Stat label={tr("Expenses (net)")} value={money(s.expenses.net)} sub={`${s.categories.length} categor${s.categories.length === 1 ? "y" : "ies"}`} icon={TrendingDown} />
-        <Stat label={tr("Profit")} value={money(s.profit)} tone={s.profit >= 0 ? "success" : "danger"} sub={s.margin != null ? `${s.margin}% margin` : "—"} />
-        <Stat label={tr("VAT to pay (est.)")} value={money(s.vat.payable)} tone={s.vat.payable > 0 ? "warn" : "success"} sub={`${money(s.vat.output)} out − ${money(s.vat.input)} in`} icon={Landmark} />
+        <Stat label={tr("Income (net)")} value={money(s.income.net)} sub={t("{x} collected", { x: money(s.income.collected) })} icon={TrendingUp} />
+        <Stat label={tr("Expenses (net)")} value={money(s.expenses.net)} sub={t("Categories: {n}", { n: s.categories.length })} icon={TrendingDown} />
+        <Stat label={tr("Profit")} value={money(s.profit)} tone={s.profit >= 0 ? "success" : "danger"} sub={s.margin != null ? t("{n}% margin", { n: s.margin }) : "—"} />
+        <Stat label={tr("VAT to pay (est.)")} value={money(s.vat.payable)} tone={s.vat.payable > 0 ? "warn" : "success"} sub={t("{a} on sales − {b} on expenses", { a: money(s.vat.output), b: money(s.vat.input) })} icon={Landmark} />
       </div>
 
       <div className="mt-6 grid lg:grid-cols-[1fr_360px] gap-6">

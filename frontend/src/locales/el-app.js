@@ -212,4 +212,10 @@ export default {
   "Download your data first if you might need it. Type the business name to confirm.": "Κατεβάστε πρώτα τα δεδομένα αν τα χρειάζεστε. Πληκτρολογήστε την επωνυμία για επιβεβαίωση.", "Business deleted": "Η επιχείρηση διαγράφηκε",
   "Business name": "Επωνυμία επιχείρησης",
   "{n} invoices": "{n} τιμολόγια",
+  "Good morning": "Καλημέρα", "Good evening": "Καλησπέρα", "Here's {month} so far": "Ο {month} μέχρι τώρα", "{a} of {b} done": "{a} από {b} έτοιμα",
+  "Overdue invoices: {n}": "Εκπρόθεσμα τιμολόγια: {n}", "Not reported to myDATA: {n}": "Χωρίς διαβίβαση στο myDATA: {n}", "Suppliers missing documents: {n}": "Προμηθευτές με ελλείψεις: {n}",
+  "Supplier documents expiring soon: {n}": "Έγγραφα προμηθευτών που λήγουν: {n}", "Quotes awaiting a reply: {n}": "Προσφορές σε αναμονή απάντησης: {n}", "Unpaid bills: {n}": "Απλήρωτοι λογαριασμοί: {n}",
+  "Draft invoices: {n}": "Πρόχειρα τιμολόγια: {n}", "{x} collected": "{x} εισπράχθηκαν", "Categories: {n}": "Κατηγορίες: {n}", "{n}% margin": "περιθώριο {n}%",
+  "{a} on sales − {b} on expenses": "{a} πωλήσεις − {b} έξοδα",
+  "just now": "μόλις τώρα", "{n}m ago": "πριν {n}λ", "{n}h ago": "πριν {n}ώ",
 };

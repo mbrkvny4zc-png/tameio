@@ -11,6 +11,7 @@ const initial = () => {
 };
 
 let current = initial();
+export const getLang = () => current;
 export const translate = (s, vars) => {
   if (typeof s !== "string") return s;
   let out = current === "el" && EL[s] ? EL[s] : s;

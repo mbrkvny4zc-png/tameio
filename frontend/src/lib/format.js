@@ -1,3 +1,5 @@
+import { getLang, translate } from "@/lib/i18n";
+
 export const money = (v, cur = "EUR") =>
   new Intl.NumberFormat("el-GR", { style: "currency", currency: cur || "EUR" }).format(v || 0);
 
@@ -7,14 +9,14 @@ export const compactMoney = (v) =>
 export const date = (iso) => {
   if (!iso) return "—";
   const d = new Date(iso.length <= 10 ? iso + "T00:00:00" : iso);
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return d.toLocaleDateString(getLang() === "el" ? "el-GR" : "en-GB", { day: "numeric", month: "short", year: "numeric" });
 };
 
 export const relative = (iso) => {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 60) return translate("just now");
+  if (diff < 3600) return translate("{n}m ago", { n: Math.floor(diff / 60) });
+  if (diff < 86400) return translate("{n}h ago", { n: Math.floor(diff / 3600) });
   return date(iso);
 };
 

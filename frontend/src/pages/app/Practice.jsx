@@ -136,7 +136,11 @@ export default function Practice() {
                 <Card key={c.org_id} className="p-5 flex flex-col" data-testid={`client-card-${c.org_id}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0"><p className="font-bold truncate">{c.name}</p><p className="text-xs text-muted">{c.afm ? `ΑΦΜ ${c.afm}` : t("No ΑΦΜ yet")}{c.last_activity && ` · ${relative(c.last_activity)}`}</p></div>
-                    <Badge tone={tone}>{t(label)}</Badge>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <Badge tone={tone}>{t(label)}</Badge>
+                      <button onClick={() => pack(c)} title={t("Export pack (ZIP)")} aria-label={t("Export pack (ZIP)")} className="p-1.5 rounded-lg text-muted hover:text-ink hover:bg-surface-2"><Download className="h-4 w-4" /></button>
+                      {c.status !== "closed" && <button onClick={() => close(c)} title={t("Mark month as closed")} aria-label={t("Mark month as closed")} className="p-1.5 rounded-lg text-muted hover:text-ink hover:bg-surface-2"><Lock className="h-4 w-4" /></button>}
+                    </div>
                   </div>
                   <div className="grid grid-cols-3 gap-2 mt-4 text-center">
                     {[["Income", c.figures.income], ["Expenses", c.figures.expenses], ["VAT due", c.figures.vat_payable]].map(([l, v]) => (
@@ -156,8 +160,6 @@ export default function Practice() {
                   <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-line">
                     <Button size="sm" onClick={() => switchTo(c.org_id, "/app")} data-testid={`open-client-${c.org_id}`}>{t("Open")}<ArrowRight className="h-3.5 w-3.5" /></Button>
                     <Button size="sm" variant="secondary" onClick={() => setRequestFor(c)}><MailPlus className="h-3.5 w-3.5" />{t("Request receipts")}</Button>
-                    <Button size="sm" variant="ghost" onClick={() => pack(c)} title={t("Export pack (ZIP)")}><Download className="h-3.5 w-3.5" /></Button>
-                    {c.status !== "closed" && <Button size="sm" variant="ghost" onClick={() => close(c)} title={t("Mark month as closed")}><Lock className="h-3.5 w-3.5" /></Button>}
                   </div>
                 </Card>
               );

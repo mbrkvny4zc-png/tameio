@@ -44,6 +44,8 @@ function buildNav(t, { kind, isAccountant }) {
   ];
 }
 
+const ROLE = { owner: "Owner", admin: "Admin", staff: "Staff", accountant: "Accountant" };
+
 function OrgSwitcher() {
   const { orgs, current, switchTo } = useOrg();
   const { t } = useT();
@@ -59,7 +61,7 @@ function OrgSwitcher() {
     <div className="relative" ref={ref}>
       <button onClick={() => many && setOpen(!open)} className={cx("w-full flex items-center gap-2.5 rounded-xl border border-line px-3 py-2 text-left", many && "hover:bg-surface-2")} data-testid="org-switcher">
         <span className="h-8 w-8 shrink-0 rounded-lg bg-surface-2 flex items-center justify-center">{current.kind === "practice" ? <Calculator className="h-4 w-4 text-brand" /> : <Building2 className="h-4 w-4 text-brand" />}</span>
-        <span className="min-w-0 flex-1"><span className="block text-sm font-semibold truncate">{current.name}</span><span className="block text-[11px] text-muted">{t(current.kind === "practice" ? "Accounting firm" : current.role)}</span></span>
+        <span className="min-w-0 flex-1"><span className="block text-sm font-semibold truncate">{current.name}</span><span className="block text-[11px] text-muted">{t(current.kind === "practice" ? "Accounting firm" : ROLE[current.role] || current.role)}</span></span>
         {many && <ChevronsUpDown className="h-4 w-4 text-muted shrink-0" />}
       </button>
       {open && (
@@ -67,7 +69,7 @@ function OrgSwitcher() {
           {orgs.map((o) => (
             <button key={o.id} onClick={() => switchTo(o.id, o.kind === "practice" ? "/app/practice" : "/app")} className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2 text-left">
               <span className="flex-1 min-w-0 truncate">{o.name}</span>
-              <span className="text-[10px] text-muted">{t(o.kind === "practice" ? "Firm" : o.role)}</span>
+              <span className="text-[10px] text-muted">{t(o.kind === "practice" ? "Firm" : ROLE[o.role] || o.role)}</span>
               {o.id === current.id && <Check className="h-4 w-4 text-brand" />}
             </button>
           ))}

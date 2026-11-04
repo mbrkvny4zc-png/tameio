@@ -241,14 +241,11 @@ async def build_suggestion(org_id: str, x: dict, biz: dict) -> dict:
                               "document_number": x.get("document_number") or "", "mark": x.get("mydata_mark") or ""}}
 
 
-@router.post("/scans")
-async def scan(request: Request, file: UploadFile = File(...), ctx: Ctx = Depends(get_ctx)):
-    rate_limit(request, f"scan:{ctx.org_id}", 120)
-    await enforce(ctx.org_id, "scans_month")
-    data = await file.read(MAX_PDF + 1)
+async def process_scan(org_id: str, user_id: str, data: bytes, filename: str, declared_type: str, source: str = "upload", meta: dict = None) -> dict:
+    """Store a document and read it with AI. Raises HTTPException for bad files; AI failures are recorded on the scan."""
     if not data:
         raise HTTPException(status_code=400, detail="The file is empty")
-    media_type = _detect_type(data, file.content_type or "", file.filename or "")
+    media_type = _detect_type(data, declared_type or "", filename or "")
     limit = MAX_PDF if media_type == "application/pdf" else MAX_IMAGE
     if len(data) > limit:
         raise HTTPException(status_code=413, detail=f"File is too large (max {limit // (1024 * 1024)} MB)")
@@ -256,18 +253,43 @@ async def scan(request: Request, file: UploadFile = File(...), ctx: Ctx = Depend
     ext = {"application/pdf": ".pdf", "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}[media_type]
     stored = f"{uuid.uuid4().hex}{ext}"
     (SCAN_DIR / stored).write_bytes(data)
-    fmeta = {"stored_name": stored, "filename": Path(file.filename or f"scan{ext}").name[:120], "content_type": media_type, "size": len(data)}
-    scan_doc = {"id": str(uuid.uuid4()), "org_id": ctx.org_id, "file": fmeta, "status": "processing", "created_by": ctx.user_id, "created_at": now()}
+    fmeta = {"stored_name": stored, "filename": Path(filename or f"scan{ext}").name[:120], "content_type": media_type, "size": len(data)}
+    scan_doc = {"id": str(uuid.uuid4()), "org_id": org_id, "file": fmeta, "status": "processing", "source": source, **(meta or {}),
+                "created_by": user_id, "created_at": now()}
     await get_db().scans.insert_one({**scan_doc})
-    biz = await get_business(ctx.org_id)
+    biz = await get_business(org_id)
     try:
         extracted = await ai.extract_document(data, media_type, biz)
     except ai.ScanError as e:
         await get_db().scans.update_one({"id": scan_doc["id"]}, {"$set": {"status": "failed", "error": str(e)}})
-        raise HTTPException(status_code=422, detail={"message": str(e), "scan_id": scan_doc["id"]})
-    suggestion = await build_suggestion(ctx.org_id, extracted, biz)
+        return {**scan_doc, "status": "failed", "error": str(e)}
+    suggestion = await build_suggestion(org_id, extracted, biz)
     await get_db().scans.update_one({"id": scan_doc["id"]}, {"$set": {"status": "done", "extracted": extracted, "suggestion": suggestion}})
     return {**scan_doc, "status": "done", "extracted": extracted, "suggestion": suggestion}
+
+
+@router.post("/scans")
+async def scan(request: Request, file: UploadFile = File(...), ctx: Ctx = Depends(get_ctx)):
+    rate_limit(request, f"scan:{ctx.org_id}", 120)
+    await enforce(ctx.org_id, "scans_month")
+    data = await file.read(MAX_PDF + 1)
+    result = await process_scan(ctx.org_id, ctx.user_id, data, file.filename or "", file.content_type or "")
+    if result["status"] == "failed":
+        raise HTTPException(status_code=422, detail={"message": result["error"], "scan_id": result["id"]})
+    return result
+
+
+@router.get("/scans/pending")
+async def pending_scans(ctx: Ctx = Depends(get_ctx)):
+    """Read but not yet saved — e.g. receipts that arrived by email."""
+    return await get_db().scans.find({"org_id": ctx.org_id, "status": "done", "used_for": None, "dismissed": {"$ne": True}},
+                                     {"_id": 0}).sort("created_at", -1).to_list(100)
+
+
+@router.post("/scans/{scan_id}/dismiss")
+async def dismiss_scan(scan_id: str, ctx: Ctx = Depends(get_ctx)):
+    await get_db().scans.update_one({"id": scan_id, "org_id": ctx.org_id}, {"$set": {"dismissed": True}})
+    return {"ok": True}
 
 
 @router.get("/scans")

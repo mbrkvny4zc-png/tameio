@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { CheckCircle2, Download, Paperclip, Pencil, Plus, Receipt, ScanLine, Search, Trash2 } from "lucide-react";
 import { api, download, openFile } from "@/lib/api";
+import { CommentButton, useCommentCounts } from "@/components/Comments";
 import { date, money, todayISO } from "@/lib/format";
 import { Badge, Button, Empty, IconBtn, Input, PageHeader, PageLoader, Segmented, Select, Sheet, Table } from "@/components/ui";
 import { ExpenseForm } from "@/components/ExpenseForm";
@@ -19,6 +20,7 @@ export default function Expenses() {
   const [cat, setCat] = useState("");
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState(null);
+  const commentCounts = useCommentCounts("expense");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => setList(await api.get("/expenses")), []);
@@ -81,6 +83,7 @@ export default function Expenses() {
                 <td className="td">
                   <div className="flex justify-end -mr-2">
                     {x.file && <IconBtn icon={Paperclip} label={tr("View receipt")} onClick={() => openFile(`/expenses/${x.id}/file`).catch(() => toast.error(tr("File not available")))} />}
+                    <CommentButton type="expense" id={x.id} label={`${x.vendor_name} · ${x.date}`} count={commentCounts[x.id]} />
                     <IconBtn icon={Pencil} label={tr("Edit")} onClick={() => setEditing({ ...x })} />
                     <IconBtn icon={Trash2} label={tr("Delete")} tone="danger" onClick={() => del(x)} />
                   </div>

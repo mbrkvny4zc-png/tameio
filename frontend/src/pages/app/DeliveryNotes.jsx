@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { CheckCircle2, Link2, PackageCheck, Pencil, Plus, Printer, Send, Trash2, Truck, XCircle } from "lucide-react";
 import QRCode from "qrcode";
 import { api } from "@/lib/api";
+import { CommentButton, useCommentCounts } from "@/components/Comments";
 import { date, todayISO } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import { AfmInput, RowMenu } from "@/components/Extras";
@@ -145,6 +146,7 @@ async function printNote(n, biz, meta) {
 }
 
 export default function DeliveryNotes() {
+  const commentCounts = useCommentCounts("delivery_note");
   const { t } = useT();
   const [params, setParams] = useSearchParams();
   const [list, setList] = useState(null);
@@ -198,6 +200,7 @@ export default function DeliveryNotes() {
                   <td className="td"><Badge tone={tone}>{t(label)}</Badge>{n.mydata?.simulated && <span className="block text-[10px] text-warn mt-0.5">{t("Simulation")}</span>}</td>
                   <td className="td hidden lg:table-cell font-mono text-xs">{n.mydata?.mark || "—"}</td>
                   <td className="td"><div className="flex justify-end items-center -mr-2">
+                    <CommentButton type="delivery_note" id={n.id} label={`${n.number} · ${n.recipient_name || ""}`} count={commentCounts[n.id]} />
                     {n.status === "draft" && <IconBtn icon={Pencil} label={t("Edit")} onClick={() => setEditing(n)} />}
                     <IconBtn icon={Printer} label={t("Print with QR")} onClick={() => print(n)} />
                     <RowMenu items={[

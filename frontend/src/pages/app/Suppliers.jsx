@@ -5,6 +5,7 @@ import {
   Banknote, CalendarClock, Check, Download, Link2, Mail, Plus, RefreshCw, Search, Settings2, ShieldAlert, ShieldCheck, ShieldX, Trash2, Truck, Upload, X,
 } from "lucide-react";
 import { api, download } from "@/lib/api";
+import { CommentButton, useCommentCounts } from "@/components/Comments";
 import { Badge, Button, Card, Empty, Field, IconBtn, Input, Modal, PageHeader, PageLoader, Segmented, Sheet, Table, Textarea } from "@/components/ui";
 import { translate as tr } from "@/lib/i18n";
 import { AfmInput } from "@/components/Extras";
@@ -173,6 +174,7 @@ function SupplierSheet({ supplier, onClose, onChanged, onDeleted }) {
 }
 
 export default function Suppliers() {
+  const commentCounts = useCommentCounts("supplier");
   const [params] = useSearchParams();
   const [list, setList] = useState(null);
   const [renewals, setRenewals] = useState([]);
@@ -215,7 +217,7 @@ export default function Suppliers() {
             <Segmented value={filter} onChange={setFilter} options={[["all", `All ${list.length}`], ["blocked", `Blocked ${counts.blocked || 0}`], ["attention", `Attention ${counts.attention || 0}`], ["compliant", `Compliant ${counts.compliant || 0}`]]} />
             <div className="relative sm:w-64"><Search className="h-4 w-4 absolute left-3 top-3 text-muted" /><Input className="pl-9" placeholder={tr("Name or ΑΦΜ")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
           </div>
-          <Table head={["Supplier", { label: "ΑΦΜ", className: "hidden md:table-cell" }, "Status", "Compliance", { label: "Next expiry", className: "hidden lg:table-cell" }]}>
+          <Table head={["Supplier", { label: "ΑΦΜ", className: "hidden md:table-cell" }, "Status", "Compliance", { label: "Next expiry", className: "hidden lg:table-cell" }, ""]}>
             {shown.map((s) => (
               <tr key={s.id} onClick={() => setSelected(s)} className="hover:bg-surface-2/50 cursor-pointer" data-testid={`supplier-row-${s.id}`}>
                 <td className="td"><p className="font-medium">{s.name}</p><p className="text-[11px] text-muted">{[s.category, s.contact_name].filter(Boolean).join(" · ")}</p></td>
@@ -224,6 +226,7 @@ export default function Suppliers() {
                 <td className="td"><div className="flex items-center gap-2"><Verdict v={s.compliance.verdict} /><span className="text-[11px] text-muted">{s.compliance.progress.done}/{s.compliance.progress.total}</span></div>
                   {s.compliance.blocking[0] && <p className="text-[11px] text-muted mt-1 truncate max-w-[260px]">{s.compliance.blocking[0]}</p>}</td>
                 <td className="td text-muted hidden lg:table-cell">{s.compliance.next_expiry || "—"}</td>
+                <td className="td" onClick={(e) => e.stopPropagation()}><CommentButton type="supplier" id={s.id} label={s.name} count={commentCounts[s.id]} /></td>
               </tr>
             ))}
           </Table>

@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import {
   LayoutDashboard, FileText, FileSignature, ClipboardList, Users, Receipt, ShoppingCart, Truck, BarChart3, Settings, ScanLine, Bell, LogOut,
   Menu, X, ShieldCheck, Inbox, Landmark, CalendarClock, Calculator, ChevronsUpDown, Check, Building2, ArrowLeft, Sparkles,
-  ChevronDown, MessageSquareText, Package, PackageCheck, Search, Smartphone, Handshake, Gauge, LifeBuoy, Pin, PinOff, Bookmark, ChevronUp, Eye, EyeOff, SlidersHorizontal, FileBarChart,
+  ChevronDown, MessageSquareText, Package, PackageCheck, Search, Smartphone, Handshake, Gauge, LifeBuoy, Pin, PinOff, Bookmark, ChevronUp, Eye, EyeOff, SlidersHorizontal, FileBarChart, AtSign,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -15,6 +15,7 @@ import { Button, Modal, cx } from "@/components/ui";
 import { toast } from "sonner";
 import { CommandPalette, NewMenu } from "@/components/CommandPalette";
 import { AiDraft } from "@/components/AiDraft";
+import { CommentsPanel } from "@/components/Comments";
 import { ErrorBoundary } from "@/lib/crash";
 import { ICONS, LayoutProvider, PIN_TYPE_ICON, applyNav, iconName, useLayout } from "@/lib/layout";
 
@@ -31,6 +32,7 @@ function buildNav(t, { kind, isAccountant, admin }) {
   return [
     { key: "top", group: null, items: [{ to: "/app", label: t("Dashboard"), icon: LayoutDashboard, end: true },
       { to: "/app/ask", label: t("Ask Tameio"), icon: MessageSquareText },
+      { to: "/app/mentions", label: t("Mentions"), icon: AtSign },
       ...(isAccountant ? [{ to: "/app/practice", label: t("All clients"), icon: Calculator }] : [])] },
     { key: "sales", group: t("Sales"), items: [
       { to: "/app/invoices", label: t("Invoices & receipts"), icon: FileText },
@@ -88,16 +90,30 @@ function InstallApp() {
 
 const readOpen = () => { try { return JSON.parse(localStorage.getItem("tameio_nav_more") || "{}"); } catch { return {}; } };
 
-function NavItem({ to, label, icon: Icon, end }) {
+function NavItem({ to, label, icon: Icon, end, badge }) {
   return (
     <NavLink to={to} end={end} className={({ isActive }) => cx("flex items-center gap-3 px-3 h-9 rounded-lg text-sm font-medium transition-colors",
       isActive ? "bg-brand-soft text-brand" : "text-muted hover:text-ink hover:bg-surface-2")}>
-      <Icon className="h-[18px] w-[18px]" strokeWidth={1.9} />{label}
+      <Icon className="h-[18px] w-[18px]" strokeWidth={1.9} /><span className="flex-1 truncate">{label}</span>
+      {badge > 0 && <span className="min-w-5 h-5 px-1.5 rounded-full bg-brand text-white text-[11px] font-bold flex items-center justify-center" data-testid={`badge-${to}`}>{badge}</span>}
     </NavLink>
   );
 }
 
-function NavGroups({ nav }) {
+/** Live count of unanswered @mentions for the menu badge. */
+function useMentionCount() {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    const load = () => api.get("/mentions/count").then((r) => setN(r.open)).catch(() => {});
+    load();
+    const id = setInterval(load, 60_000);
+    ["tameio:mentions-changed", "tameio:comments-changed"].forEach((e) => window.addEventListener(e, load));
+    return () => { clearInterval(id); ["tameio:mentions-changed", "tameio:comments-changed"].forEach((e) => window.removeEventListener(e, load)); };
+  }, []);
+  return n;
+}
+
+function NavGroups({ nav, badges }) {
   const { t } = useT();
   const loc = useLocation();
   const [open, setOpen] = useState(readOpen);
@@ -112,7 +128,7 @@ function NavGroups({ nav }) {
     return (
       <div key={gi} className="mb-4">
         {g.group && <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted/80">{g.group}</p>}
-        {g.items.map((it) => <NavItem key={it.to} {...it} />)}
+        {g.items.map((it) => <NavItem key={it.to} {...it} badge={badges?.[it.to]} />)}
         {showMore && g.more.map((it) => <NavItem key={it.to} {...it} />)}
         {g.more?.length > 0 && !activeInMore && (
           <button onClick={() => toggle(g.key)} className="flex items-center gap-3 px-3 h-8 w-full rounded-lg text-xs font-medium text-muted/80 hover:text-ink">
@@ -353,6 +369,7 @@ function Shell() {
   const { layout } = useLayout();
   const nav = applyNav(baseNav, layout.nav);
   const [editing, setEditing] = useState(false);
+  const mentionCount = useMentionCount();
   const practiceOrg = orgs?.find((o) => o.kind === "practice");
 
   const Sidebar = (
@@ -369,7 +386,7 @@ function Shell() {
         )}
       </div>
       <nav className="flex-1 overflow-y-auto px-3">
-        {editing ? <NavEditor base={baseNav} onDone={() => setEditing(false)} /> : <><PinnedNav /><NavGroups nav={nav} /></>}
+        {editing ? <NavEditor base={baseNav} onDone={() => setEditing(false)} /> : <><PinnedNav /><NavGroups nav={nav} badges={{ "/app/mentions": mentionCount }} /></>}
         {!editing && layout.can_edit && (
           <button onClick={() => setEditing(true)} className="flex items-center gap-2 px-3 h-8 text-xs font-medium text-muted/80 hover:text-ink mb-3" data-testid="nav-edit"><SlidersHorizontal className="h-3.5 w-3.5" />{t("Edit menu")}</button>
         )}
@@ -435,6 +452,7 @@ function Shell() {
       <UpgradeDialog />
       {kind !== "practice" && <CommandPalette nav={nav} />}
       {kind !== "practice" && <AiDraft />}
+      <CommentsPanel />
     </div>
   );
 }

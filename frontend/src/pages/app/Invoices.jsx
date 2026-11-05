@@ -5,6 +5,7 @@ import { BellRing, Copy, FilePlus2, FileText, Link2, PackageCheck, Pencil, Print
 import { RowMenu } from "@/components/Extras";
 import { useProducts } from "@/components/ItemsEditor";
 import { api, openFile } from "@/lib/api";
+import { CommentButton, useCommentCounts } from "@/components/Comments";
 import { WITHHOLDING, STAMP_DUTY, date, docTotals, lineTotals, money, todayISO } from "@/lib/format";
 import { printDocument } from "@/lib/print";
 import { Badge, Button, Empty, Field, IconBtn, Input, Modal, PageHeader, PageLoader, Segmented, Select, Sheet, Table, Textarea } from "@/components/ui";
@@ -350,6 +351,7 @@ export default function Invoices() {
   const [creditFor, setCreditFor] = useState(null);
   const [receipt, setReceipt] = useState(false);
   const [paying, setPaying] = useState(null);
+  const commentCounts = useCommentCounts("invoice");
   const [hints, setHints] = useState(null);
   const [preset, setPreset] = useState(null);
   const go = useNavigate();
@@ -477,6 +479,7 @@ export default function Invoices() {
               <td className="td">{i.imported ? <span className="text-[11px] text-muted">{tr("Imported")}</span> : <MyDataBadge inv={i} onClick={() => setMydataInv(i)} />}</td>
               <td className="td">
                 <div className="flex justify-end items-center -mr-2">
+                  <CommentButton type="invoice" id={i.id} label={`${i.number} · ${i.client_name}`} count={commentCounts[i.id]} />
                   {i.kind !== "receipt" && <IconBtn icon={Send} label={tr("Email to client")} onClick={() => send(i)} />}
                   <IconBtn icon={Printer} label={tr("Print / PDF")} onClick={() => print(i)} />
                   {!locked(i) && !["credit_note", "receipt"].includes(i.kind) && <IconBtn icon={Pencil} label={tr("Edit")} onClick={() => setEditing({ ...i, due_date: i.due_date || "" })} />}

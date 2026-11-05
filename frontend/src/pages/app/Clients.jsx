@@ -6,6 +6,7 @@ import { date as fdate } from "@/lib/format";
 import { useSearchParams } from "react-router-dom";
 import { AfmInput, ImportDialog } from "@/components/Extras";
 import { api } from "@/lib/api";
+import { CommentButton, useCommentCounts } from "@/components/Comments";
 import { money } from "@/lib/format";
 import { Button, Empty, Field, IconBtn, Input, Modal, PageHeader, PageLoader, Select, Sheet, Table, Textarea } from "@/components/ui";
 import { translate as tr } from "@/lib/i18n";
@@ -63,6 +64,7 @@ export default function Clients() {
   const [busy, setBusy] = useState(false);
   const [importing, setImporting] = useState(false);
   const [statement, setStatement] = useState(null);
+  const commentCounts = useCommentCounts("client");
   const [params, setParams] = useSearchParams();
   const load = useCallback(async () => setList(await api.get("/clients")), []);
   useEffect(() => { load().catch(() => setList([])); }, [load]);
@@ -111,6 +113,7 @@ export default function Clients() {
                 <td className={`td text-right num font-semibold ${c.stats?.outstanding ? "text-warn" : "text-muted"}`}>{money(c.stats?.outstanding)}</td>
                 <td className="td"><div className="flex justify-end -mr-2">
                   {c.email && <a href={`mailto:${c.email}`} className="p-2 rounded-lg text-muted hover:text-ink hover:bg-surface-2" title={tr("Email")}><Mail className="h-4 w-4" /></a>}
+                  <CommentButton type="client" id={c.id} label={c.name} count={commentCounts[c.id]} />
                   <IconBtn icon={ScrollText} label={tr("Statement")} onClick={() => setStatement(c.id)} data-testid={`statement-${c.id}`} />
                   <IconBtn icon={Pencil} label={tr("Edit")} onClick={() => setEditing({ ...EMPTY, ...c })} />
                   <IconBtn icon={Trash2} label={tr("Delete")} tone="danger" onClick={() => del(c)} />

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { CheckCircle2, EyeOff, Inbox, Link2, Plus, RefreshCw, Send, Sparkles } from "lucide-react";
 import { api } from "@/lib/api";
+import { CommentButton, useCommentCounts } from "@/components/Comments";
 import { date, money, relative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import { Badge, Button, Empty, IconBtn, PageHeader, PageLoader, Segmented, Table } from "@/components/ui";
@@ -10,6 +11,7 @@ import { Badge, Button, Empty, IconBtn, PageHeader, PageLoader, Segmented, Table
 const SOURCE = { expense: ["from your expense", "success"], history: ["same as last time", "brand"], ai: ["AI suggestion", "violet"] };
 
 export default function Received() {
+  const commentCounts = useCommentCounts("received");
   const { t } = useT();
   const [data, setData] = useState(null);
   const [cats, setCats] = useState([]);
@@ -107,7 +109,7 @@ export default function Received() {
                       </div>
                     )}
                   </td>
-                  <td className="td"><IconBtn icon={EyeOff} label={x.ignored ? t("Restore") : t("Ignore")} onClick={() => ignore(x)} /></td>
+                  <td className="td"><div className="flex"><CommentButton type="received" id={x.id} label={`${x.issuer_name || x.issuer_afm} · ${x.mark}`} count={commentCounts[x.id]} /><IconBtn icon={EyeOff} label={x.ignored ? t("Restore") : t("Ignore")} onClick={() => ignore(x)} /></div></td>
                 </tr>
               );
             })}

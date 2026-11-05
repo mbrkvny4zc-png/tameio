@@ -27,6 +27,7 @@ Invoicing, AADE myDATA e-invoicing, AI receipt scanning and supplier compliance 
 | **Management (creator only)** | Overview (MRR, sign-ups, plans, usage, most active businesses), all users with plan changes, bug reports & ideas with replies, automatically captured crashes (browser and server, grouped and counted, "copy for fixing"), automations with on/off, run now and run history, partner payouts · access: `OWNER_EMAIL` (+ `PLATFORM_ADMINS`) |
 | **Help & feedback** | Every user can report a problem, suggest an idea or ask a question (with screenshot and page); they see your replies and get notified · new reports and a daily error digest are emailed to the creator |
 | **Custom reports** | Build reports on invoices, receipts, sales by product, expenses, payments, unpaid invoices or delivery notes · any period, grouping and figures · 7 ready templates · save, share with the team, print/PDF, CSV · email chosen team members every Monday or 1st of the month |
+| **Comments & @mentions** | A conversation on every invoice, expense, client, supplier, purchase invoice and delivery note · @mention teammates or the accountant (autocomplete) · personal notification + email · "Mentions" inbox with done/reopen · comment counts on lists |
 | **Your layout** | Owners/admins reorder and hide menu items and dashboard sections for the business · everyone pins pages, clients, invoices and saved searches |
 | **Ease of use** | Grouped, shorter menu · Ctrl/⌘+K search · "+ New" menu · first-run checklist with removable sample data · Settings in four tabs |
 

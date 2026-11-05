@@ -1,0 +1,123 @@
+// Greek — the multi-page public website (Home, Features, For accountants, Pricing, FAQ).
+export default {
+  // Menu, footer, titles
+  "Home": "Αρχική", "Features": "Λειτουργίες", "FAQ": "Συχνές ερωτήσεις", "Help": "Βοήθεια", "Free accountant account": "Δωρεάν λογαριασμός λογιστή",
+  "invoicing & books for Greek small businesses": "τιμολόγηση και βιβλία για μικρές επιχειρήσεις",
+  "Invoicing, myDATA and books for Greek small businesses — and free for their accountants.": "Τιμολόγηση, myDATA και βιβλία για μικρές επιχειρήσεις — και δωρεάν για τους λογιστές τους.",
+  "See pricing": "Δείτε τις τιμές", "See all features": "Όλες οι λειτουργίες", "See every feature": "Δείτε όλες τις λειτουργίες", "Learn more": "Περισσότερα", "Still curious?": "Θέλετε να μάθετε περισσότερα;",
+  "30 s": "30 δευτ.",
+  // Home
+  "What Tameio does": "Τι κάνει το Tameio", "Invoices & myDATA": "Τιμολόγια & myDATA", "Receipts & expenses": "Αποδείξεις & έξοδα", "Team & accountant": "Ομάδα & λογιστής",
+  "Every Greek document type, checked and reported to myDATA with its ΜΑΡΚ and QR.": "Κάθε ελληνικό παραστατικό, ελεγμένο και διαβιβασμένο στο myDATA με ΜΑΡΚ και QR.",
+  "Snap a receipt; AI reads the ΑΦΜ, VAT and total and files it for you.": "Φωτογραφίστε μια απόδειξη· η AI διαβάζει ΑΦΜ, ΦΠΑ και σύνολο και την καταχωρεί για εσάς.",
+  "“Pay by card” on every invoice, polite reminders and bank matching.": "«Πληρωμή με κάρτα» σε κάθε τιμολόγιο, ευγενικές υπενθυμίσεις και αντιστοίχιση με την τράπεζα.",
+  "Every deadline in one place — and in your Google Calendar.": "Κάθε προθεσμία σε ένα σημείο — και στο Google Calendar σας.",
+  "Ask your books anything, or check a tax rule with sources from Taxheaven.": "Ρωτήστε τα βιβλία σας οτιδήποτε ή ελέγξτε έναν φορολογικό κανόνα με πηγές από το Taxheaven.",
+  "Comment on any invoice and @mention a teammate or your accountant.": "Σχολιάστε οποιοδήποτε τιμολόγιο και αναφέρετε με @ έναν συνεργάτη ή τον λογιστή σας.",
+  "Answer clients' questions right on the invoice": "Απαντήστε στους πελάτες πάνω στο ίδιο το τιμολόγιο",
+  "Earn from every client you bring with our partner programme": "Κερδίστε από κάθε πελάτη που φέρνετε, με το πρόγραμμα συνεργατών",
+  "More for accountants": "Περισσότερα για λογιστές", "Free to start. Plans from €9 a month.": "Δωρεάν για αρχή. Πακέτα από €9 τον μήνα.",
+  "No card to sign up. Your accountant never pays.": "Χωρίς κάρτα για εγγραφή. Ο λογιστής σας δεν πληρώνει ποτέ.", "See plans": "Δείτε τα πακέτα",
+  // Features
+  "Everything a small business needs, in one place.": "Ό,τι χρειάζεται μια μικρή επιχείρηση, σε ένα σημείο.",
+  "Invoices, receipts, payments, deadlines and your accountant — in plain Greek or English, on the computer and on the phone.":
+    "Τιμολόγια, αποδείξεις, πληρωμές, προθεσμίες και ο λογιστής σας — σε απλά ελληνικά ή αγγλικά, στον υπολογιστή και στο κινητό.",
+  "Everything else": "Όλα τα υπόλοιπα",
+  "Invoices, receipts, credit notes and delivery notes — every Greek document type": "Τιμολόγια, αποδείξεις, πιστωτικά και δελτία αποστολής — κάθε ελληνικό παραστατικό",
+  "Type the ΑΦΜ; name, address and tax office fill themselves in": "Γράψτε το ΑΦΜ· επωνυμία, διεύθυνση και ΔΟΥ συμπληρώνονται μόνα τους",
+  "Describe the job in a sentence and AI drafts the invoice": "Περιγράψτε τη δουλειά σε μία πρόταση και η AI ετοιμάζει το τιμολόγιο",
+  "Several series and branches, your own invoice design": "Πολλές σειρές και υποκαταστήματα, δικό σας σχέδιο τιμολογίου",
+  "Withholding tax and stamp duty worked out for you": "Παρακράτηση φόρου και χαρτόσημο υπολογίζονται για εσάς",
+  "A carpenter writing an invoice at his workbench": "Ένας ξυλουργός γράφει τιμολόγιο στον πάγκο του",
+  "Photo, PDF or forward the email — it's read in seconds": "Φωτογραφία, PDF ή προώθηση του email — διαβάζεται σε δευτερόλεπτα",
+  "Purchase invoices your suppliers report to myDATA arrive by themselves, classified by AI": "Τα τιμολόγια αγορών που διαβιβάζουν οι προμηθευτές σας στο myDATA έρχονται μόνα τους, χαρακτηρισμένα από την AI",
+  "Nothing is saved until you check it": "Τίποτα δεν αποθηκεύεται πριν το ελέγξετε", "Ready for your accountant, month by month": "Έτοιμα για τον λογιστή σας, μήνα με μήνα",
+  "A kafeneio owner making Greek coffee behind a marble counter": "Ένας καφετζής φτιάχνει ελληνικό καφέ πίσω από μαρμάρινο πάγκο",
+  "Card payments with Viva Wallet": "Πληρωμές με κάρτα μέσω Viva Wallet", "Polite automatic reminders for overdue invoices": "Ευγενικές αυτόματες υπενθυμίσεις για ληξιπρόθεσμα τιμολόγια",
+  "Part payments and client statements": "Μερικές πληρωμές και καρτέλες πελατών", "Import a statement from any Greek bank and payments match themselves": "Εισάγετε κίνηση από οποιαδήποτε ελληνική τράπεζα και οι πληρωμές αντιστοιχίζονται μόνες τους",
+  "A florist arranging flowers outside her shop": "Μια ανθοπώλισσα στολίζει λουλούδια έξω από το μαγαζί της",
+  "Every deadline, in your Google Calendar.": "Κάθε προθεσμία, στο Google Calendar σας.",
+  "VAT, e-ΕΦΚΑ, invoices due, bills to pay, quotes expiring, supplier certificates, myDATA — Tameio puts every date your business has in one calendar, and reminds you before it's due.":
+    "ΦΠΑ, e-ΕΦΚΑ, εισπράξεις, πληρωμές, προσφορές που λήγουν, βεβαιώσεις προμηθευτών, myDATA — το Tameio βάζει κάθε ημερομηνία της επιχείρησής σας σε ένα ημερολόγιο και σας θυμίζει πριν λήξει.",
+  "Things appear and disappear by themselves — a paid invoice leaves the calendar on its own": "Οι εκκρεμότητες εμφανίζονται και φεύγουν μόνες τους — ένα εξοφλημένο τιμολόγιο φεύγει αυτόματα",
+  "Reminders in the app and by email, 1, 3 or 7 days before": "Υπενθυμίσεις στην εφαρμογή και με email, 1, 3 ή 7 ημέρες πριν",
+  "One tap adds it to Google Calendar, Apple Calendar or Outlook": "Με ένα πάτημα μπαίνει στο Google Calendar, στο Apple Calendar ή στο Outlook",
+  "Add your own dates too — rent, ΕΝΦΙΑ instalments, anything": "Προσθέστε και δικές σας ημερομηνίες — ενοίκιο, δόσεις ΕΝΦΙΑ, οτιδήποτε",
+  "The Tameio calendar with tax deadlines, payments due and myDATA reminders": "Το ημερολόγιο του Tameio με φορολογικές προθεσμίες, εισπράξεις και υπενθυμίσεις myDATA",
+  "Tax questions": "Φορολογικές ερωτήσεις", "Not sure about a rule? Ask — with sources.": "Δεν είστε σίγουροι για έναν κανόνα; Ρωτήστε — με πηγές.",
+  "Which VAT rate applies? When is stamp duty due? Tameio searches Taxheaven, ΑΑΔΕ, gov.gr and the laws live, explains the answer in plain words and shows you where it found it.":
+    "Ποιος συντελεστής ΦΠΑ ισχύει; Πότε μπαίνει χαρτόσημο; Το Tameio ψάχνει ζωντανά σε Taxheaven, ΑΑΔΕ, gov.gr και στους νόμους, εξηγεί την απάντηση απλά και σας δείχνει πού τη βρήκε.",
+  "Links to every source, so you can check": "Σύνδεσμοι σε κάθε πηγή, για να ελέγξετε",
+  "“Ask my accountant” sends the question to your accountant in one tap": "Το «Ρωτήστε τον λογιστή μου» στέλνει την ερώτηση στον λογιστή σας με ένα πάτημα",
+  "“Ask about this” next to tricky fields while you invoice": "«Ρωτήστε γι' αυτό» δίπλα στα δύσκολα πεδία, την ώρα που τιμολογείτε",
+  "A tax question answered in Tameio, with links to Taxheaven and ΑΑΔΕ": "Φορολογική ερώτηση με απάντηση στο Tameio και συνδέσμους σε Taxheaven και ΑΑΔΕ",
+  "Ask on the invoice, not in a dozen chats.": "Ρωτήστε πάνω στο τιμολόγιο, όχι σε δέκα συνομιλίες.",
+  "Leave a note on any invoice, expense or client and @mention a teammate or your accountant. They're told straight away, and every answer stays with the record it's about.":
+    "Αφήστε σημείωση σε οποιοδήποτε τιμολόγιο, έξοδο ή πελάτη και αναφέρετε με @ έναν συνεργάτη ή τον λογιστή σας. Ενημερώνονται αμέσως και κάθε απάντηση μένει μαζί με την εγγραφή.",
+  "@mentions with a Mentions inbox — mark things done when they're answered": "Αναφορές με @ και θυρίδα Επισημάνσεων — σημειώνετε ό,τι απαντήθηκε",
+  "Your accountant joins for free and sees your books live": "Ο λογιστής σας μπαίνει δωρεάν και βλέπει τα βιβλία σας ζωντανά",
+  "Roles for owners, staff and accountants": "Ρόλοι για ιδιοκτήτες, προσωπικό και λογιστές", "Emails when someone needs you": "Email όταν κάποιος σας χρειάζεται",
+  "A conversation on an invoice between the owner and the accountant": "Συζήτηση πάνω σε τιμολόγιο ανάμεσα στον ιδιοκτήτη και τον λογιστή",
+  "Numbers you can actually use.": "Νούμερα που πραγματικά χρησιμεύουν.",
+  "Profit, VAT, who owes you and where the money went — at a glance. Build your own reports and have them emailed to your team every week or month.":
+    "Κέρδος, ΦΠΑ, ποιος σας χρωστά και πού πήγαν τα χρήματα — με μια ματιά. Φτιάξτε δικές σας αναφορές και στείλτε τες στην ομάδα σας κάθε εβδομάδα ή μήνα.",
+  "Ready-made reports and a simple report builder": "Έτοιμες αναφορές και απλός δημιουργός αναφορών", "Scheduled emails to the people who need them": "Προγραμματισμένα email σε όσους τα χρειάζονται",
+  "Export to Excel for your accountant": "Εξαγωγή σε Excel για τον λογιστή σας",
+  "Stock & online shops": "Απόθεμα & ηλεκτρονικά καταστήματα", "Stock that counts itself down, and orders from WooCommerce or Shopify that become receipts.": "Απόθεμα που μειώνεται μόνο του, και παραγγελίες από WooCommerce ή Shopify που γίνονται αποδείξεις.",
+  "Card terminal (beta)": "Τερματικό καρτών (beta)", "Take card payments at the counter with Viva and issue the receipt in one go.": "Πληρωμές με κάρτα στο ταμείο μέσω Viva και έκδοση απόδειξης με μία κίνηση.",
+  "A menu that fits you": "Ένα μενού στα μέτρα σας", "Pin what you use most, hide what you don't, and arrange the dashboard your way.": "Καρφιτσώστε ό,τι χρησιμοποιείτε συχνά, κρύψτε ό,τι δεν χρειάζεστε και στήστε τον πίνακα όπως θέλετε.",
+  "On your phone": "Στο κινητό σας", "Install Tameio on your phone's home screen — no app store needed.": "Εγκαταστήστε το Tameio στην αρχική οθόνη του κινητού — χωρίς app store.",
+  "Safe and yours": "Ασφαλή και δικά σας", "Two-step sign-in, encrypted myDATA keys, and a full export of your data whenever you want.": "Σύνδεση σε δύο βήματα, κρυπτογραφημένα κλειδιά myDATA και πλήρης εξαγωγή των δεδομένων σας όποτε θέλετε.",
+  // For accountants
+  "All your clients on one screen": "Όλοι οι πελάτες σας σε μία οθόνη", "See who is ready to close the month and who is still missing receipts.": "Δείτε ποιος είναι έτοιμος να κλείσει τον μήνα και σε ποιον λείπουν ακόμα αποδείξεις.",
+  "Ask for missing receipts": "Ζητήστε όσες αποδείξεις λείπουν", "One click sends your client a list; what they upload lands straight in their books.": "Με ένα κλικ ο πελάτης παίρνει λίστα· ό,τι ανεβάσει μπαίνει κατευθείαν στα βιβλία του.",
+  "Purchase invoices, classified": "Τιμολόγια αγορών, χαρακτηρισμένα", "Invoices suppliers report to myDATA arrive by themselves; AI suggests the E3 category, you confirm and send.": "Τα τιμολόγια που διαβιβάζουν οι προμηθευτές έρχονται μόνα τους· η AI προτείνει κατηγορία Ε3, εσείς επιβεβαιώνετε και στέλνετε.",
+  "Month close in one file": "Κλείσιμο μήνα σε ένα αρχείο", "A tidy ZIP with every invoice, receipt and summary, ready for your own software.": "Ένα τακτοποιημένο ZIP με κάθε τιμολόγιο, απόδειξη και σύνοψη, έτοιμο για το δικό σας πρόγραμμα.",
+  "Answer on the invoice": "Απάντηση πάνω στο τιμολόγιο", "Clients @mention you on the exact invoice they mean. No more “which one?” phone calls.": "Οι πελάτες σάς αναφέρουν με @ στο ακριβές τιμολόγιο. Τέλος τα τηλέφωνα «ποιο απ' όλα;».",
+  "Tax rules with sources": "Φορολογικοί κανόνες με πηγές", "Clients can check a rule themselves — with links to Taxheaven and ΑΑΔΕ — and send it to you to confirm.": "Οι πελάτες ελέγχουν μόνοι τους έναν κανόνα — με συνδέσμους σε Taxheaven και ΑΑΔΕ — και σας τον στέλνουν για επιβεβαίωση.",
+  "Open your free accountant account": "Ανοίξτε δωρεάν λογαριασμό λογιστή", "Sign up as an accounting firm. You get your own referral link and code straight away.": "Εγγραφείτε ως λογιστικό γραφείο. Παίρνετε αμέσως δικό σας σύνδεσμο και κωδικό σύστασης.",
+  "Bring your clients": "Φέρτε τους πελάτες σας", "Share the link, or set a client up yourself. Each business you bring is linked to your firm.": "Μοιραστείτε τον σύνδεσμο ή στήστε εσείς τον πελάτη. Κάθε επιχείρηση που φέρνετε συνδέεται με το γραφείο σας.",
+  "Earn every month": "Κερδίστε κάθε μήνα", "You receive a share of each referred client's subscription, for as long as they stay. A monthly report shows every euro.": "Παίρνετε ποσοστό από τη συνδρομή κάθε πελάτη που φέρατε, για όσο παραμένει. Μια μηνιαία αναφορά δείχνει κάθε ευρώ.",
+  "Work with your clients": "Συνεργασία με τους πελάτες σας", "The question arrives on the invoice it's about.": "Η ερώτηση έρχεται πάνω στο τιμολόγιο που αφορά.",
+  "Your clients @mention you on an invoice or expense. You answer there, they get an email, and the conversation stays with the record for next year.":
+    "Οι πελάτες σας σάς αναφέρουν με @ σε ένα τιμολόγιο ή έξοδο. Απαντάτε εκεί, εκείνοι παίρνουν email και η συζήτηση μένει με την εγγραφή και για του χρόνου.",
+  "Free, with unlimited clients": "Δωρεάν, με απεριόριστους πελάτες", "Your own Mentions inbox across every client": "Δική σας θυρίδα Επισημάνσεων για όλους τους πελάτες",
+  "Recommend Tameio. Earn with every client.": "Προτείνετε το Tameio. Κερδίστε από κάθε πελάτη.",
+  "Accounting firms that bring their clients to Tameio receive a share of every subscription — every month, for as long as the client stays.":
+    "Τα λογιστικά γραφεία που φέρνουν τους πελάτες τους στο Tameio παίρνουν ποσοστό από κάθε συνδρομή — κάθε μήνα, για όσο παραμένει ο πελάτης.",
+  "The share and payout terms are in your partner agreement. Clients pay the same price either way.": "Το ποσοστό και οι όροι πληρωμής ορίζονται στη συμφωνία συνεργασίας. Οι πελάτες πληρώνουν την ίδια τιμή σε κάθε περίπτωση.",
+  "Bring your clients. Keep your evenings.": "Φέρτε τους πελάτες σας. Κρατήστε τα βράδια σας.",
+  "A free accountant account takes two minutes. Add your first client today, or let them invite you.": "Ο δωρεάν λογαριασμός λογιστή θέλει δύο λεπτά. Προσθέστε τον πρώτο σας πελάτη σήμερα ή αφήστε τον να σας προσκαλέσει.",
+  // Pricing
+  "No card to sign up. Move up or down a plan whenever you like — your accountant never pays.": "Χωρίς κάρτα για εγγραφή. Αλλάξτε πακέτο όποτε θέλετε — ο λογιστής σας δεν πληρώνει ποτέ.",
+  "Included in every plan": "Περιλαμβάνονται σε κάθε πακέτο", "Questions about plans": "Ερωτήσεις για τα πακέτα",
+  "myDATA reporting for every document type": "Διαβίβαση στο myDATA για κάθε παραστατικό", "Calendar with reminders and Google Calendar": "Ημερολόγιο με υπενθυμίσεις και Google Calendar",
+  "Ask Tameio and tax questions with sources": "Ρωτήστε το Tameio και φορολογικές ερωτήσεις με πηγές", "Comments and @mentions": "Σχόλια και αναφορές με @",
+  "Greek and English": "Ελληνικά και αγγλικά", "Export all your data, any time": "Εξαγωγή όλων των δεδομένων, οποιαδήποτε στιγμή", "Solo": "Solo",
+  // FAQ
+  "AI & tax questions": "AI & φορολογικές ερωτήσεις", "Teams & accountants": "Ομάδες & λογιστές", "Plans & your data": "Πακέτα & τα δεδομένα σας",
+  "Can it answer tax questions?": "Απαντά σε φορολογικές ερωτήσεις;",
+  "Yes. Switch to “Tax question” and ask, for example, which VAT rate applies or when stamp duty is due. Tameio searches Taxheaven, ΑΑΔΕ, gov.gr and the official laws live, explains the answer in plain words and links to every source. It's general information, not advice — one tap sends the question to your accountant to confirm.":
+    "Ναι. Επιλέξτε «Φορολογική ερώτηση» και ρωτήστε, για παράδειγμα, ποιος συντελεστής ΦΠΑ ισχύει ή πότε μπαίνει χαρτόσημο. Το Tameio ψάχνει ζωντανά σε Taxheaven, ΑΑΔΕ, gov.gr και στους επίσημους νόμους, εξηγεί απλά και δίνει σύνδεσμο σε κάθε πηγή. Είναι γενική πληροφόρηση, όχι συμβουλή — με ένα πάτημα η ερώτηση πάει στον λογιστή σας για επιβεβαίωση.",
+  "What goes on the calendar?": "Τι μπαίνει στο ημερολόγιο;",
+  "Every date your business has: VAT and e-ΕΦΚΑ deadlines, invoices due to you, bills to pay, invoices not yet sent to myDATA, quotes about to expire, supplier certificates, deliveries to confirm, recurring invoices and your own reminders. Things leave the calendar by themselves when they're done.":
+    "Κάθε ημερομηνία της επιχείρησής σας: προθεσμίες ΦΠΑ και e-ΕΦΚΑ, εισπράξεις, πληρωμές, τιμολόγια που δεν έχουν διαβιβαστεί στο myDATA, προσφορές που λήγουν, βεβαιώσεις προμηθευτών, παραδόσεις, επαναλαμβανόμενα τιμολόγια και δικές σας υπενθυμίσεις. Ό,τι ολοκληρώνεται φεύγει μόνο του.",
+  "Does it work with Google Calendar?": "Συνδέεται με το Google Calendar;",
+  "Yes. One tap adds your Tameio calendar to Google Calendar, Apple Calendar or Outlook through a private link. Google refreshes it every few hours; Tameio's own reminders, in the app and by email, arrive straight away.":
+    "Ναι. Με ένα πάτημα το ημερολόγιο του Tameio μπαίνει στο Google Calendar, στο Apple Calendar ή στο Outlook μέσω ιδιωτικού συνδέσμου. Το Google το ανανεώνει κάθε λίγες ώρες· οι υπενθυμίσεις του Tameio, στην εφαρμογή και με email, έρχονται αμέσως.",
+  "Can my team and my accountant work in Tameio too?": "Μπορούν να δουλεύουν στο Tameio και η ομάδα μου και ο λογιστής μου;",
+  "Yes. Invite staff and your accountant with their own roles. Anyone can leave a comment on an invoice, expense or client and @mention someone — they're told straight away and the conversation stays with the record.":
+    "Ναι. Προσκαλέστε προσωπικό και λογιστή, ο καθένας με τον ρόλο του. Όλοι μπορούν να αφήσουν σχόλιο σε τιμολόγιο, έξοδο ή πελάτη και να αναφέρουν κάποιον με @ — ενημερώνεται αμέσως και η συζήτηση μένει με την εγγραφή.",
+  "Is there really a free plan?": "Υπάρχει πραγματικά δωρεάν πακέτο;",
+  "Yes — no card needed. It includes myDATA reporting, 10 invoices and 15 AI receipt scans a month, and a free account for your accountant. Upgrade only when you need more.":
+    "Ναι — χωρίς κάρτα. Περιλαμβάνει διαβίβαση στο myDATA, 10 τιμολόγια και 15 σαρώσεις αποδείξεων τον μήνα, και δωρεάν λογαριασμό για τον λογιστή σας. Αναβαθμίζετε μόνο όταν χρειαστείτε περισσότερα.",
+  "Can I change or cancel my plan?": "Μπορώ να αλλάξω ή να ακυρώσω το πακέτο μου;",
+  "Any time. Send us a message from Help & feedback inside the app and we'll move you to the plan you want. Your data stays yours either way.":
+    "Οποιαδήποτε στιγμή. Στείλτε μας μήνυμα από τη «Βοήθεια & σχόλια» μέσα στην εφαρμογή και θα σας μεταφέρουμε στο πακέτο που θέλετε. Τα δεδομένα σας μένουν δικά σας σε κάθε περίπτωση.",
+  "Is my data safe, and can I take it with me?": "Είναι ασφαλή τα δεδομένα μου και μπορώ να τα πάρω μαζί μου;",
+  "Your myDATA keys are stored encrypted, you can turn on two-step sign-in, and you can download a full export of your data whenever you like. Delete your account and your data goes with it.":
+    "Τα κλειδιά myDATA αποθηκεύονται κρυπτογραφημένα, μπορείτε να ενεργοποιήσετε σύνδεση σε δύο βήματα και να κατεβάσετε πλήρη εξαγωγή των δεδομένων σας όποτε θέλετε. Αν διαγράψετε τον λογαριασμό, διαγράφονται και τα δεδομένα.",
+  "Can I use it on my phone?": "Μπορώ να το χρησιμοποιώ στο κινητό;",
+  "Yes. Tameio works in any phone browser and can be installed on the home screen like an app — no app store needed.": "Ναι. Το Tameio δουλεύει σε κάθε browser κινητού και εγκαθίσταται στην αρχική οθόνη σαν εφαρμογή — χωρίς app store.",
+  "Can't find what you're looking for? Sign up and use Help & feedback inside the app — we answer every message.": "Δεν βρίσκετε αυτό που ψάχνετε; Εγγραφείτε και γράψτε μας από τη «Βοήθεια & σχόλια» — απαντάμε σε κάθε μήνυμα.",
+};

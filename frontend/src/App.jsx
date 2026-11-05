@@ -4,7 +4,11 @@ import { useOrg } from "@/lib/org";
 import { useAuth } from "@/lib/auth";
 import { PageLoader } from "@/components/ui";
 import AppShell from "@/components/AppShell";
-import Landing from "@/pages/Landing";
+import Landing from "@/pages/site/Home";
+import Features from "@/pages/site/Features";
+import Accountants from "@/pages/site/Accountants";
+import Pricing from "@/pages/site/Pricing";
+import Faq from "@/pages/site/Faq";
 import { AcceptInvite, Login, Signup } from "@/pages/Auth";
 import { translate as tr } from "@/lib/i18n";
 import { saveRef } from "@/lib/referral";
@@ -65,6 +69,10 @@ export default function App() {
     <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/features" element={<Features />} />
+        <Route path="/accountants" element={<Accountants />} />
+        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/faq" element={<Faq />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/privacy" element={<Privacy />} />

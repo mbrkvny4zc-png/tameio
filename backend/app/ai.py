@@ -6,6 +6,7 @@
 import base64
 import json
 import logging
+from datetime import date
 from typing import Optional
 
 import anthropic
@@ -292,3 +293,78 @@ async def draft_invoice(text: str, clients: list, products: list) -> dict:
         return json.loads(text_out)
     except json.JSONDecodeError:
         raise ScanError("The AI response was incomplete — please try again.")
+
+
+# ------------------------------------------------------------------ "Tax question" (live search of trusted Greek sources)
+
+# Only these sites are searched; subdomains are included. Taxheaven is read live and cited, never copied.
+TAX_DOMAINS = ["taxheaven.gr", "aade.gr", "gsis.gr", "gov.gr", "e-nomothesia.gr", "et.gr"]
+
+TAX_SYSTEM = """You help Greek small-business owners understand tax and invoicing rules (VAT/ΦΠΑ, myDATA, ΑΑΔΕ, invoices and
+receipts, withholding, stamp duty, ΕΦΚΑ contributions, deadlines).
+Rules:
+- Search before answering and base the answer on what the sources say. Prefer the newest official material (ΑΑΔΕ decisions
+  and circulars, ΦΕΚ, laws); use Taxheaven articles for explanations. Mention the decision/law number when the source gives one.
+- Answer in the language of the question, in plain words: 2-6 short sentences, no markdown headings or tables. Give rates,
+  deadlines and amounts exactly as the source states them, with the date they apply from when it matters.
+- If the sources disagree, are older than the latest change you can find, or don't cover the case, say so plainly.
+- If the question needs facts about this specific business (its activity, regime, amounts), say which facts matter instead of guessing.
+- You are not an accountant or lawyer. Don't tell them what to file; explain the rule. Never answer questions unrelated to
+  Greek tax, accounting or business paperwork — say briefly that you only cover those."""
+
+
+def _tax_sources(content) -> list:
+    """Collect the cited pages first, then any other search results, de-duplicated by URL."""
+    seen, out = set(), []
+
+    def add(url, title):
+        if url and url not in seen:
+            seen.add(url)
+            out.append({"url": url, "title": (title or url)[:200]})
+
+    for b in content:
+        if b.type == "text":
+            for c in getattr(b, "citations", None) or []:
+                add(getattr(c, "url", None), getattr(c, "title", None))
+    for b in content:
+        if b.type == "web_search_tool_result" and isinstance(getattr(b, "content", None), list):
+            for r in b.content:
+                add(getattr(r, "url", None), getattr(r, "title", None))
+    return out
+
+
+async def ask_tax(question: str, history: list) -> dict:
+    """Answer a general tax question from a live, domain-restricted web search, with sources."""
+    if not config.AI_SCAN_ENABLED:
+        raise ScanError("AI is turned off on this server.")
+    msgs = []
+    for h in history[-4:]:
+        if h.get("q") and h.get("a"):
+            msgs += [{"role": "user", "content": h["q"][:500]}, {"role": "assistant", "content": h["a"][:2000]}]
+    msgs.append({"role": "user", "content": f"Today is {date.today().isoformat()}.\n\nQuestion: {question}"})
+    tools = [{"type": "web_search_20260209", "name": "web_search", "max_uses": 5, "allowed_domains": TAX_DOMAINS,
+              "user_location": {"type": "approximate", "country": "GR", "timezone": "Europe/Athens"}}]
+    client = anthropic.AsyncAnthropic(timeout=180.0, max_retries=2)
+    try:
+        for _ in range(4):  # a long search turn can pause; send it back so the server continues
+            resp = await client.beta.messages.create(
+                model=config.ANTHROPIC_MODEL, max_tokens=16000, system=TAX_SYSTEM, messages=msgs, tools=tools,
+                output_config={"effort": "medium"}, betas=["server-side-fallback-2026-07-01"], fallbacks="default")
+            if resp.stop_reason != "pause_turn":
+                break
+            msgs.append({"role": "assistant", "content": resp.content})
+    except anthropic.AuthenticationError:
+        raise ScanError("AI isn't configured on the server (missing or invalid Anthropic API key).")
+    except (anthropic.RateLimitError, anthropic.APIConnectionError, anthropic.APIStatusError) as e:
+        log.warning("Tax question failed: %s", e)
+        raise ScanError("The AI service is unavailable right now — try again shortly.")
+    except Exception as e:
+        if "api_key" in str(e).lower() or "auth" in str(e).lower():
+            raise ScanError("AI isn't configured on the server (missing Anthropic API key).")
+        raise
+    if resp.stop_reason == "refusal":
+        raise ScanError("I can't help with that question.")
+    answer = "".join(b.text for b in resp.content if b.type == "text").strip()
+    if not answer:
+        raise ScanError("I couldn't find an answer in the sources — try rephrasing, or ask your accountant.")
+    return {"answer": answer, "sources": _tax_sources(resp.content)[:8]}

@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { relative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import { Badge, Button, Card, Field, PageHeader, Segmented, Textarea } from "@/components/ui";
+import { TaxHelpCard } from "@/components/TaxHelp";
 
 export const FB_STATUS = { new: ["Received", "neutral"], in_progress: ["Being worked on", "brand"], fixed: ["Fixed", "success"], wont_fix: ["Closed", "neutral"] };
 const KIND_ICON = { bug: Bug, idea: Lightbulb, question: MessageCircleQuestion };
@@ -64,6 +65,8 @@ export default function Feedback() {
           <Button className="ml-auto" onClick={send} loading={busy} disabled={msg.trim().length < 5} data-testid="feedback-send"><Send className="h-4 w-4" />{t("Send")}</Button>
         </div>
       </Card>
+
+      <div className="mt-6"><TaxHelpCard /></div>
 
       <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted mt-8 mb-3">{t("Your reports")}</h2>
       {mine.length === 0 ? <p className="text-sm text-muted flex items-center gap-2"><LifeBuoy className="h-4 w-4" />{t("Nothing yet.")}</p> : (

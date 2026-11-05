@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { date, money, todayISO } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import { Badge, Button, Card, Field, IconBtn, Input, Modal, PageHeader, PageLoader, Select } from "@/components/ui";
+import { AskTax } from "@/components/TaxHelp";
 
 const KIND = { vat: ["VAT", "brand"], efka: ["e-ΕΦΚΑ", "violet"], income_tax: ["Income tax", "warn"], custom: ["Custom", "neutral"] };
 
@@ -79,7 +80,8 @@ export default function Calendar() {
                 <p className={`font-semibold ${it.done ? "line-through" : ""}`}>{lang === "el" ? it.title : it.title_en}</p>
                 <div className="flex flex-wrap items-center gap-2 mt-0.5"><Badge tone={tone}>{t(k)}</Badge>
                   {it.estimate != null && <span className="text-xs text-muted">{t("est.")} <b className="num text-ink">{money(it.estimate)}</b></span>}
-                  {overdue && <span className="text-xs text-danger font-semibold">{t("overdue")}</span>}</div>
+                  {overdue && <span className="text-xs text-danger font-semibold">{t("overdue")}</span>}
+                  {it.kind !== "custom" && <AskTax className="text-xs" label="Explain" q={`${t("What is this Greek tax deadline and what do I need to do?")} ${it.title}`} />}</div>
               </div>
               <button onClick={() => toggle(it)} className={`h-9 w-9 rounded-xl border flex items-center justify-center ${it.done ? "bg-success text-white border-success" : "border-line text-muted hover:border-success hover:text-success"}`}
                 aria-label={it.done ? t("Mark as not done") : t("Mark as done")}><Check className="h-4 w-4" /></button>

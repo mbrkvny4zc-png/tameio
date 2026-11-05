@@ -7,6 +7,7 @@ import adminEl from "./el-admin";
 import layoutEl from "./el-layout";
 import reportsEl from "./el-reports";
 import commentsEl from "./el-comments";
+import taxEl from "./el-tax";
 
 // Greek dictionary: English source string -> Greek. Missing keys fall back to English.
-export default { ...app, ...site, ...added, ...round3, ...partners, ...adminEl, ...layoutEl, ...reportsEl, ...commentsEl };
+export default { ...app, ...site, ...added, ...round3, ...partners, ...adminEl, ...layoutEl, ...reportsEl, ...commentsEl, ...taxEl };

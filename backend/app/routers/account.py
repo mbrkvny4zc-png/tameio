@@ -16,7 +16,7 @@ router = APIRouter(tags=["account"])
 ORG_COLLECTIONS = ["business", "clients", "documents", "invoices", "expenses", "scans", "suppliers", "supplier_requirements", "mydata_settings",
                    "mydata_transmissions", "mydata_counters", "counters", "notifications", "received_docs", "received_sync", "classification_map",
                    "bank_txns", "receipt_requests", "period_closes", "viva_settings", "payment_attempts", "reminder_settings", "tax_settings", "tax_done",
-                   "inbox_settings", "inbox_log", "invites", "memberships"]
+                   "inbox_settings", "inbox_log", "invites", "memberships", "ask_log", "tax_questions", "comments"]
 SECRET_FIELDS = {"subscription_key_enc", "client_secret_enc", "token", "public_token", "key", "password", "totp_secret", "totp_pending"}
 
 

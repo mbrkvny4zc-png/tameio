@@ -3,6 +3,7 @@
 We never let the model query the database. Instead we build a compact, already-aggregated snapshot
 (monthly totals, categories, clients, who owes what, recent expenses) and the model reads only that.
 """
+import uuid
 from collections import defaultdict
 from datetime import date, timedelta
 from typing import List, Optional
@@ -93,6 +94,26 @@ async def ask(data: AskInput, request: Request, ctx: Ctx = Depends(get_ctx)):
         raise HTTPException(status_code=503, detail=str(e))
     await get_db().ask_log.insert_one({"org_id": ctx.org_id, "user_id": ctx.user_id, "question": q, "answer": out.get("answer"), "created_at": now()})
     return out
+
+
+# ------------------------------------------------------------------ Tax questions (live search of Taxheaven and official sites)
+
+@router.post("/ask/tax")
+async def ask_tax(data: AskInput, request: Request, ctx: Ctx = Depends(get_ctx)):
+    q = (data.question or "").strip()
+    if not q:
+        raise HTTPException(status_code=400, detail="Type a question")
+    if len(q) > 500:
+        raise HTTPException(status_code=400, detail="Keep the question under 500 characters")
+    rate_limit(request, f"ask-tax:{ctx.org_id}", 20)
+    try:
+        out = await ai.ask_tax(q, data.history or [])
+    except ai.ScanError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    doc = {"id": str(uuid.uuid4()), "org_id": ctx.org_id, "user_id": ctx.user_id, "question": q, "answer": out["answer"],
+           "sources": out["sources"], "created_at": now()}
+    await get_db().tax_questions.insert_one({**doc})
+    return {"id": doc["id"], **out}
 
 
 # ------------------------------------------------------------------ "Write the invoice for me"

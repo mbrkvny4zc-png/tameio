@@ -6,7 +6,7 @@ import { useT } from "@/lib/i18n";
 import { openComments } from "@/components/Comments";
 import { Badge, Button, Card, Empty, PageHeader, PageLoader, Segmented } from "@/components/ui";
 
-const TYPE = { invoice: "Invoice", expense: "Expense", client: "Client", supplier: "Supplier", received: "Purchase invoice", delivery_note: "Delivery note", document: "Document", product: "Product" };
+const TYPE = { invoice: "Invoice", expense: "Expense", client: "Client", supplier: "Supplier", received: "Purchase invoice", delivery_note: "Delivery note", document: "Document", product: "Product", question: "Tax question" };
 
 /** Everything someone @mentioned you in, until you mark it done. */
 export default function Mentions() {

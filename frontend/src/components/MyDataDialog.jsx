@@ -5,6 +5,7 @@ import { api, download } from "@/lib/api";
 import { money } from "@/lib/format";
 import { Badge, Button, Field, Input, Modal, Select, Spinner } from "@/components/ui";
 import { translate as tr } from "@/lib/i18n";
+import { AskTax } from "@/components/TaxHelp";
 
 export const ENV_META = {
   simulation: { label: "Simulation", tone: "warn", icon: FlaskConical, hint: "Nothing is sent to AADE. MARKs are fake — use it to try the flow." },
@@ -153,7 +154,7 @@ export function MyDataDialog({ invoice, onClose, onChanged }) {
                 </div>
               )}
               {Math.round(invoice.tax_rate || 0) === 0 && !isCredit && (
-                <Field label={tr("VAT exemption category (AADE code)")} hint={tr("Required for 0% VAT — use the code for the legal basis of the exemption.")} className="max-w-xs">
+                <Field label={tr("VAT exemption category (AADE code)")} hint={<>{tr("Required for 0% VAT — use the code for the legal basis of the exemption.")} <AskTax q="Which myDATA VAT exemption category should I use for a 0% VAT invoice?" /></>} className="max-w-xs">
                   <Input type="number" min={1} max={40} value={form.vat_exemption_category || ""} onChange={(e) => set("vat_exemption_category", e.target.value ? parseInt(e.target.value, 10) : null)} />
                 </Field>
               )}

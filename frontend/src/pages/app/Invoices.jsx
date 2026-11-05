@@ -12,6 +12,7 @@ import { Badge, Button, Empty, Field, IconBtn, Input, Modal, PageHeader, PageLoa
 import { ClientPicker, EMPTY_ITEM, ItemsEditor } from "@/components/ItemsEditor";
 import { MyDataBadge, MyDataDialog } from "@/components/MyDataDialog";
 import { translate as tr } from "@/lib/i18n";
+import { AskTax } from "@/components/TaxHelp";
 
 const STATUS = {
   draft: ["Draft", "neutral"], sent: ["Sent", "brand"], paid: ["Paid", "success"], overdue: ["Overdue", "danger"], credited: ["Credit note", "violet"],
@@ -56,13 +57,13 @@ function MoreOptions({ f, setF, biz, clients }) {
       {open && (
         <div className="px-4 pb-4 space-y-4 border-t border-line pt-4">
           <div className="grid sm:grid-cols-2 gap-3">
-            <Field label={tr("Withholding tax")} hint={tr("e.g. 20% when a freelancer bills a business")}>
+            <Field label={tr("Withholding tax")} hint={<>{tr("e.g. 20% when a freelancer bills a business")} · <AskTax q="When is withholding tax deducted from an invoice in Greece, and at what rate?" /></>}>
               <Select value={f.withholding_category || 0} onChange={(e) => setF({ ...f, withholding_category: Number(e.target.value) })} data-testid="withholding">
                 <option value={0}>{tr("None")}</option>
                 {Object.entries(WITHHOLDING).map(([k, [l, p]]) => <option key={k} value={k}>{p}% · {tr(l)}</option>)}
               </Select>
             </Field>
-            <Field label={tr("Stamp duty")}>
+            <Field label={tr("Stamp duty")} hint={<AskTax q="When do I add stamp duty (χαρτόσημο) to an invoice in Greece?" />}>
               <Select value={f.stamp_category || 0} onChange={(e) => setF({ ...f, stamp_category: Number(e.target.value) })}>
                 <option value={0}>{tr("None")}</option>
                 {Object.entries(STAMP_DUTY).map(([k, p]) => <option key={k} value={k}>{String(p).replace(".", ",")}%</option>)}
@@ -89,7 +90,7 @@ function MoreOptions({ f, setF, biz, clients }) {
           {dn && (
             <div className="space-y-3 rounded-xl bg-surface-2/60 p-3">
               <div className="grid sm:grid-cols-4 gap-2">
-                <Field label={tr("Purpose")} className="sm:col-span-2"><Select value={dn.move_purpose} onChange={(e) => setF({ ...f, delivery: { ...dn, move_purpose: Number(e.target.value) } })}>{PURPOSES.map(([k, l]) => <option key={k} value={k}>{tr(l)}</option>)}</Select></Field>
+                <Field label={tr("Purpose")} className="sm:col-span-2" hint={<AskTax q="Which purpose of movement should I choose on a Greek digital delivery note?" />}><Select value={dn.move_purpose} onChange={(e) => setF({ ...f, delivery: { ...dn, move_purpose: Number(e.target.value) } })}>{PURPOSES.map(([k, l]) => <option key={k} value={k}>{tr(l)}</option>)}</Select></Field>
                 <Field label={tr("Dispatch date")}><Input type="date" value={dn.dispatch_date} onChange={(e) => setF({ ...f, delivery: { ...dn, dispatch_date: e.target.value } })} /></Field>
                 <Field label={tr("Vehicle plate")}><Input value={dn.vehicle_number} onChange={(e) => setF({ ...f, delivery: { ...dn, vehicle_number: e.target.value.toUpperCase() } })} /></Field>
               </div>

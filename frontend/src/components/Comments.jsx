@@ -7,8 +7,8 @@ import { relative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import { Button, Sheet, cx } from "@/components/ui";
 
-/** Open the conversation for any record from anywhere: openComments("invoice", id, "INV-0012 · Acme"). */
-export const openComments = (type, id, label = "") => window.dispatchEvent(new CustomEvent("tameio:comments", { detail: { type, id, label } }));
+/** Open the conversation for any record from anywhere: openComments("invoice", id, "INV-0012 · Acme"). An optional draft pre-fills the box. */
+export const openComments = (type, id, label = "", draft = "") => window.dispatchEvent(new CustomEvent("tameio:comments", { detail: { type, id, label, draft } }));
 
 /** {record id: count} for list badges; refreshes when a comment is added anywhere. */
 export function useCommentCounts(type) {
@@ -45,7 +45,6 @@ function Body({ text, people }) {
 function Composer({ people, onSend, initial = "", onCancel, busyLabel }) {
   const { t } = useT();
   const [text, setText] = useState(initial);
-  const [picked, setPicked] = useState([]);
   const [query, setQuery] = useState(null);
   const [sel, setSel] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -69,13 +68,12 @@ function Composer({ people, onSend, initial = "", onCancel, busyLabel }) {
     const before = text.slice(0, pos).replace(/@([\p{L}\p{N}._-]*)$/u, `@${p.name} `);
     caret.current = before.length;
     setText(before + text.slice(pos));
-    setPicked((x) => [...new Set([...x, p.id])]);
     setQuery(null);
   };
   const submit = async () => {
     if (!text.trim()) return;
     setBusy(true);
-    try { await onSend(text, picked.filter((id) => text.includes(`@${people.find((p) => p.id === id)?.name}`))); setText(""); setPicked([]); }
+    try { await onSend(text, people.filter((p) => p.name && text.includes(`@${p.name}`)).map((p) => p.id)); setText(""); }
     catch (e) { toast.error(e.message); }
     setBusy(false);
   };
@@ -143,7 +141,7 @@ export function CommentsPanel() {
   const everyone = [...people, ...(data?.comments || []).map((c) => ({ id: c.author_id, name: c.author_name }))];
   return (
     <Sheet open onClose={() => setTarget(null)} title={data?.target.label || target.label || t("Comments")} description={t("Questions and notes about this record. Mention a teammate or your accountant with @.")} width="max-w-lg"
-      footer={<div className="w-full"><Composer people={people} onSend={post} /></div>}>
+      footer={<div className="w-full"><Composer key={`${target.type}:${target.id}`} people={people} onSend={post} initial={target.draft || ""} /></div>}>
       <div className="space-y-4" data-testid="comments-thread">
         {!data ? <p className="text-sm text-muted">{t("Loading…")}</p> : data.comments.length === 0 ? (
           <div className="text-center py-10 text-sm text-muted"><MessageSquare className="h-7 w-7 mx-auto mb-2 text-brand" />{t("No comments yet. Ask a question, leave a note, or @mention someone.")}</div>

@@ -30,9 +30,10 @@ TARGETS = {
     "delivery_note": ("delivery_notes", lambda d: f"{d.get('number')} · {d.get('recipient_name') or ''}".strip(" ·"), "/app/delivery-notes"),
     "document": ("documents", lambda d: f"{d.get('number')} · {d.get('client_name') or d.get('supplier_name') or ''}".strip(" ·"), "/app/quotes"),
     "product": ("products", lambda d: d.get("name") or "", "/app/products"),
+    "question": ("tax_questions", lambda d: d.get("question") or "", "/app/ask"),
 }
 TYPE_LABEL = {"invoice": "invoice", "expense": "expense", "client": "client", "supplier": "supplier", "received": "purchase invoice",
-              "delivery_note": "delivery note", "document": "document", "product": "product"}
+              "delivery_note": "delivery note", "document": "document", "product": "product", "question": "tax question"}
 
 
 async def _target(ctx: Ctx, ttype: str, tid: str) -> dict:

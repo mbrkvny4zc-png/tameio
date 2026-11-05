@@ -101,4 +101,12 @@ export default {
   "Can clients pay by card?": "Μπορούν οι πελάτες να πληρώσουν με κάρτα;",
   "Yes, with Viva Wallet. Connect your Viva account and invoices get a “Pay by card” button; paid invoices mark themselves as paid.": "Ναι, μέσω Viva Wallet. Συνδέστε τον λογαριασμό Viva και τα τιμολόγια αποκτούν κουμπί «Πληρωμή με κάρτα»· όσα πληρωθούν σημειώνονται αυτόματα.",
   "Spend your evenings on something better than paperwork.": "Περάστε τα βράδια σας με κάτι καλύτερο από χαρτιά.", "Create your free account": "Δημιουργήστε δωρεάν λογαριασμό",
+  // Real app screenshots
+  "The real app — no mock-ups": "Η πραγματική εφαρμογή — όχι μακέτες",
+  "This is what you see when you sign in: the month at a glance, what's owed to you, what needs your attention — on the computer and on the phone.": "Αυτό βλέπετε μόλις συνδεθείτε: τον μήνα με μια ματιά, τι σας χρωστάνε, τι χρειάζεται την προσοχή σας — στον υπολογιστή και στο κινητό.",
+  "The Tameio dashboard: income, expenses, profit, VAT and what needs attention": "Ο πίνακας του Tameio: έσοδα, έξοδα, κέρδος, ΦΠΑ και τι χρειάζεται προσοχή",
+  "The Tameio dashboard on a phone": "Ο πίνακας του Tameio στο κινητό",
+  "Scanning a receipt in the Tameio app on a phone": "Σάρωση απόδειξης με την εφαρμογή Tameio στο κινητό",
+  "Expenses in the Tameio app on a phone, sorted by category": "Τα έξοδα στην εφαρμογή Tameio στο κινητό, ανά κατηγορία",
+  "Delivery notes in Tameio, with their ΜΑΡΚ and status": "Δελτία αποστολής στο Tameio, με ΜΑΡΚ και κατάσταση",
 };

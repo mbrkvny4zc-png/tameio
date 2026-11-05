@@ -52,6 +52,30 @@ function Photo({ src, alt, caption, className = "", imgClass = "", priority }) {
   );
 }
 
+/** Real screenshots of the app (public/screens), in Greek when the page is in Greek. */
+const screen = (name) => `/screens/${name}${getLang() === "el" ? "-el" : ""}.jpg`;
+
+/** A desktop screenshot in a light browser frame. */
+function Screen({ name, alt, className = "", imgClass = "aspect-[16/10]" }) {
+  return (
+    <figure className={`rounded-[18px] overflow-hidden border border-[var(--p-line)] bg-white shadow-[0_24px_60px_-28px_rgb(40_28_12/0.45)] ${className}`}>
+      <div className="h-7 flex items-center gap-1.5 px-3 bg-[#f1ece2] border-b border-[var(--p-line)]" aria-hidden="true">
+        <span className="h-2.5 w-2.5 rounded-full bg-[#e2a08f]" /><span className="h-2.5 w-2.5 rounded-full bg-[#e7c98a]" /><span className="h-2.5 w-2.5 rounded-full bg-[#a9c48f]" />
+      </div>
+      <img src={screen(name)} alt={alt} loading="lazy" decoding="async" className={`w-full object-cover object-left-top ${imgClass}`} />
+    </figure>
+  );
+}
+
+/** A phone screenshot in a simple phone frame. */
+function Phone({ name, alt, className = "" }) {
+  return (
+    <figure className={`rounded-[38px] bg-[#1f1a14] p-2.5 shadow-[0_30px_70px_-30px_rgb(40_28_12/0.6)] ${className}`}>
+      <img src={screen(name)} alt={alt} loading="lazy" decoding="async" className="w-full rounded-[30px] aspect-[390/664] object-cover object-top" />
+    </figure>
+  );
+}
+
 function Nav() {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
@@ -127,7 +151,7 @@ const STORIES = [
   { img: "/photos/kafeneio.jpg", tag: "Receipts", title: "The shoebox, retired.", text: "Snap every supplier receipt at the counter. AI reads the ΑΦΜ, VAT and total, files it under the right category and flags duplicates." },
   { img: "/photos/carpenter.jpg", tag: "Invoices", title: "Invoice from the workshop.", text: "Pick the client, pick the saved product, send. It's reported to myDATA with its ΜΑΡΚ and QR before the sawdust settles." },
   { img: "/photos/florist.jpg", tag: "Getting paid", title: "Paid before you close up.", text: "Every invoice carries a “Pay by card” link. Reminders go out on their own, and paid invoices mark themselves as paid." },
-  { img: "/photos/mechanic.jpg", tag: "Delivery notes", title: "Parts out the door, paperwork done.", text: "Digital delivery notes with ΜΑΡΚ and QR, filled in from the invoice in one tap. The driver carries the QR; you carry on." },
+  { screen: "delivery-notes", tag: "Delivery notes", title: "Parts out the door, paperwork done.", text: "Digital delivery notes with ΜΑΡΚ and QR, filled in from the invoice in one tap. The driver carries the QR; you carry on." },
 ];
 
 const FEATURES = [
@@ -241,8 +265,9 @@ export default function Landing() {
         </div>
         <div className="mt-14 grid sm:grid-cols-2 gap-x-8 gap-y-16">
           {STORIES.map((s, n) => (
-            <article key={s.img} className={n % 2 ? "sm:mt-24" : ""}>
-              <Photo src={s.img} alt={tr(s.title)} imgClass="rounded-[18px] aspect-[4/3]" />
+            <article key={s.title} className={n % 2 ? "sm:mt-24" : ""}>
+              {s.screen ? <Screen name={s.screen} alt={tr("Delivery notes in Tameio, with their ΜΑΡΚ and status")} imgClass="aspect-[4/3]" />
+                : <Photo src={s.img} alt={tr(s.title)} imgClass="rounded-[18px] aspect-[4/3]" />}
               <p className="eyebrow mt-6">{String(n + 1).padStart(2, "0")} · {tr(s.tag)}</p>
               <h3 className="font-serif text-[30px] leading-tight mt-2">{tr(s.title)}</h3>
               <p className="text-[16px] leading-relaxed text-[var(--p-muted)] mt-3 max-w-[480px]">{tr(s.text)}</p>
@@ -262,7 +287,7 @@ export default function Landing() {
           <div>
             <p className="eyebrow">{tr("Everything in one place")}</p>
             <h2 className="h-section mt-4">{tr("The rest of the paperwork, handled.")}</h2>
-            <Photo src="/photos/phone-receipt.jpg" alt={tr("Hands photographing a paper receipt with a phone, next to a cup of coffee")} className="mt-10 hidden lg:block" imgClass="rounded-[18px] aspect-[4/5]" />
+            <Phone name="phone-scan" alt={tr("Scanning a receipt in the Tameio app on a phone")} className="mt-10 hidden lg:block max-w-[300px]" />
           </div>
           <dl className="grid sm:grid-cols-2 gap-x-10">
             {FEATURES.map(([t, d]) => (
@@ -274,12 +299,16 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Manifesto band */}
-      <section className="relative">
-        <Photo src="/photos/taverna.jpg" alt={tr("A taverna owner counting the day's receipts at a seaside table in the evening")} imgClass="aspect-[4/5] sm:aspect-[21/9] w-full" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_top,rgb(24_18_10/0.78),rgb(24_18_10/0.15)_60%)]" />
-        <div className="absolute inset-x-0 bottom-0 max-w-[1200px] mx-auto px-5 sm:px-8 pb-10 sm:pb-16">
-          <p className="font-serif text-[#f6f1e7] text-[32px] sm:text-[52px] leading-[1.08] max-w-[820px] tracking-tight">{tr("More evenings at the table. Fewer with the paperwork.")}</p>
+      {/* The real app */}
+      <section className="bg-[#1f1a14] text-[#f6f1e7] overflow-hidden" data-testid="real-app">
+        <div className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-20 sm:pt-28">
+          <p className="eyebrow !text-[#e9c99a]">{tr("The real app — no mock-ups")}</p>
+          <p className="font-serif text-[32px] sm:text-[52px] leading-[1.08] max-w-[820px] tracking-tight mt-4">{tr("More evenings at the table. Fewer with the paperwork.")}</p>
+          <p className="mt-5 text-[16px] opacity-75 max-w-[560px]">{tr("This is what you see when you sign in: the month at a glance, what's owed to you, what needs your attention — on the computer and on the phone.")}</p>
+          <div className="relative mt-12 sm:mt-16">
+            <Screen name="dashboard" alt={tr("The Tameio dashboard: income, expenses, profit, VAT and what needs attention")} className="hidden sm:block !border-[#3a3128] sm:mr-24 lg:mr-40 translate-y-6" />
+            <Phone name="phone-dashboard" alt={tr("The Tameio dashboard on a phone")} className="mx-auto w-[260px] translate-y-16 sm:translate-y-2 sm:absolute sm:right-0 sm:bottom-0 sm:w-[200px] lg:w-[250px]" />
+          </div>
         </div>
       </section>
 
@@ -350,7 +379,9 @@ export default function Landing() {
               <Link to="/signup" className="h-12 px-6 rounded-full bg-[#f6f1e7] text-[#1f1a14] inline-flex items-center gap-2 font-semibold text-[15px]">{tr("Create your free account")}<ArrowRight className="h-4 w-4" /></Link>
             </div>
           </div>
-          <Photo src="/photos/grocery.jpg" alt={tr("A grocer talking with a customer in a village shop")} imgClass="h-full min-h-[280px]" />
+          <div className="relative min-h-[320px] bg-[radial-gradient(120%_90%_at_70%_20%,#4a3b2a,#1f1a14_70%)] flex items-end justify-center pt-10 px-8 overflow-hidden">
+            <Phone name="phone-expenses" alt={tr("Expenses in the Tameio app on a phone, sorted by category")} className="w-[230px] sm:w-[260px] translate-y-16" />
+          </div>
         </div>
       </section>
 

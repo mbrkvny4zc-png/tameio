@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowRight, FilePlus2, Sparkles, FileSignature, FileText, MessageSquareText, PackageCheck, Plus, ReceiptText, ScanLine, Search, UserPlus, Users,
+  ArrowRight, FilePlus2, Sparkles, Pin, FileSignature, FileText, MessageSquareText, PackageCheck, Plus, ReceiptText, ScanLine, Search, UserPlus, Users,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { money } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import { cx } from "@/components/ui";
+import { iconName, useLayout } from "@/lib/layout";
 
 const actions = (t) => [
   { id: "ai-draft", label: t("Write an invoice with AI"), icon: Sparkles, event: "tameio:ai-draft", keys: "ai write draft γράψε τιμολόγιο" },
@@ -53,6 +54,7 @@ const norm = (s) => (s || "").toString().normalize("NFD").replace(/[̀-ͯ]/g, ""
 /** Ctrl/Cmd+K: jump to any page, start any action, or find a client / invoice by name or number. */
 export function CommandPalette({ nav }) {
   const { t } = useT();
+  const { addPin } = useLayout();
   const go = useNavigate();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -79,15 +81,15 @@ export function CommandPalette({ nav }) {
   const results = useMemo(() => {
     const n = norm(q.trim());
     const pages = nav.flatMap((g) => [...g.items, ...(g.more || [])]).concat([{ to: "/app/settings", label: t("Settings") }])
-      .map((p) => ({ id: p.to, label: p.label, hint: t("Go to"), icon: p.icon || ArrowRight, to: p.to, keys: "" }));
+      .map((p) => ({ id: p.to, label: p.label, hint: t("Go to"), icon: p.icon || ArrowRight, to: p.to, keys: "", pin: "page" }));
     const acts = actions(t).map((a) => ({ ...a, hint: t("Action") }));
     const match = (x) => !n || norm(`${x.label} ${x.keys || ""}`).includes(n);
     const out = [...acts.filter(match), ...pages.filter(match)];
     if (n && data) {
       out.push(...data.clients.filter((c) => norm(`${c.name} ${c.company} ${c.afm} ${c.email}`).includes(n)).slice(0, 5)
-        .map((c) => ({ id: `c-${c.id}`, label: c.name, hint: c.afm ? `ΑΦΜ ${c.afm}` : t("Client"), icon: Users, to: `/app/clients?open=${c.id}` })));
+        .map((c) => ({ id: `c-${c.id}`, label: c.name, hint: c.afm ? `ΑΦΜ ${c.afm}` : t("Client"), icon: Users, to: `/app/clients?open=${c.id}`, pin: "client" })));
       out.push(...data.invoices.filter((i) => norm(`${i.number} ${i.client_name}`).includes(n)).slice(0, 6)
-        .map((i) => ({ id: `i-${i.id}`, label: `${i.number} · ${i.client_name}`, hint: money(i.total), icon: FileText, to: `/app/invoices?q=${encodeURIComponent(i.number)}` })));
+        .map((i) => ({ id: `i-${i.id}`, label: `${i.number} · ${i.client_name}`, hint: money(i.total), icon: FileText, to: `/app/invoices?q=${encodeURIComponent(i.number)}`, pin: "invoice" })));
     }
     return out.slice(0, 14);
   }, [q, data, nav, t]);
@@ -114,10 +116,17 @@ export function CommandPalette({ nav }) {
           {results.map((r, i) => {
             const Icon = r.icon;
             return (
-              <button key={r.id} onMouseEnter={() => setSel(i)} onClick={() => pick(r)}
-                className={cx("w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm", i === sel && "bg-surface-2")}>
-                <Icon className="h-4 w-4 text-muted shrink-0" /><span className="flex-1 truncate">{r.label}</span><span className="text-xs text-muted">{r.hint}</span>
-              </button>
+              <div key={r.id} onMouseEnter={() => setSel(i)} className={cx("group flex items-center rounded-lg", i === sel && "bg-surface-2")}>
+                <button onClick={() => pick(r)} className="flex-1 min-w-0 flex items-center gap-3 px-3 py-2.5 text-left text-sm">
+                  <Icon className="h-4 w-4 text-muted shrink-0" /><span className="flex-1 truncate">{r.label}</span><span className="text-xs text-muted">{r.hint}</span>
+                </button>
+                {r.pin && (
+                  <button onClick={() => addPin({ type: r.pin, label: r.label, to: r.to, icon: r.pin === "page" ? iconName(r.icon) : "" })}
+                    className="mr-1.5 p-1.5 rounded-md text-muted opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-brand" title={t("Pin to the menu")} aria-label={t("Pin {name}", { name: r.label })} data-testid={`palette-pin-${r.id}`}>
+                    <Pin className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>

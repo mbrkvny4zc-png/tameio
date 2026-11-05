@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Boxes, FileSpreadsheet, Package, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -49,7 +50,9 @@ export default function Products() {
   const [list, setList] = useState(null);
   const [editing, setEditing] = useState(null);
   const [importing, setImporting] = useState(false);
-  const [q, setQ] = useState("");
+  const [params, setParams] = useSearchParams();
+  const [q, setQ] = useState(params.get("q") || "");
+  useEffect(() => { const n = new URLSearchParams(params); q ? n.set("q", q) : n.delete("q"); if (n.toString() !== params.toString()) setParams(n, { replace: true }); }, [q]); // eslint-disable-line react-hooks/exhaustive-deps
   const [busy, setBusy] = useState(false);
   const [stockOf, setStockOf] = useState(null);
   const load = useCallback(async () => { resetProducts(); setList(await api.get("/products")); }, []);

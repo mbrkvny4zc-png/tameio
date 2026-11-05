@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import {
   LayoutDashboard, FileText, FileSignature, ClipboardList, Users, Receipt, ShoppingCart, Truck, BarChart3, Settings, ScanLine, Bell, LogOut,
   Menu, X, ShieldCheck, Inbox, Landmark, CalendarClock, Calculator, ChevronsUpDown, Check, Building2, ArrowLeft, Sparkles,
-  ChevronDown, MessageSquareText, Package, PackageCheck, Search, Smartphone, Handshake, Gauge, LifeBuoy,
+  ChevronDown, MessageSquareText, Package, PackageCheck, Search, Smartphone, Handshake, Gauge, LifeBuoy, Pin, PinOff, Bookmark, ChevronUp, Eye, EyeOff, SlidersHorizontal,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -12,22 +12,24 @@ import { LangToggle, useT } from "@/lib/i18n";
 import { useOrg } from "@/lib/org";
 import { Logo } from "@/components/Logo";
 import { Button, Modal, cx } from "@/components/ui";
+import { toast } from "sonner";
 import { CommandPalette, NewMenu } from "@/components/CommandPalette";
 import { AiDraft } from "@/components/AiDraft";
 import { ErrorBoundary } from "@/lib/crash";
+import { ICONS, LayoutProvider, PIN_TYPE_ICON, applyNav, iconName, useLayout } from "@/lib/layout";
 
 function buildNav(t, { kind, isAccountant, admin }) {
-  const adminGroup = admin ? [{ group: t("Owner"), items: [{ to: "/app/admin", label: t("Management"), icon: Gauge }] }] : [];
+  const adminGroup = admin ? [{ key: "owner", group: t("Owner"), items: [{ to: "/app/admin", label: t("Management"), icon: Gauge }] }] : [];
   if (kind === "practice") {
     return [
-      { group: null, items: [{ to: "/app/practice", label: t("My clients"), icon: Calculator, end: true },
+      { key: "top", group: null, items: [{ to: "/app/practice", label: t("My clients"), icon: Calculator, end: true },
         { to: "/app/partner", label: t("Partner programme"), icon: Handshake }] },
       ...adminGroup,
     ];
   }
   // Each group shows its everyday pages; the rest sit behind "more" so the menu stays short.
   return [
-    { group: null, items: [{ to: "/app", label: t("Dashboard"), icon: LayoutDashboard, end: true },
+    { key: "top", group: null, items: [{ to: "/app", label: t("Dashboard"), icon: LayoutDashboard, end: true },
       { to: "/app/ask", label: t("Ask Tameio"), icon: MessageSquareText },
       ...(isAccountant ? [{ to: "/app/practice", label: t("All clients"), icon: Calculator }] : [])] },
     { key: "sales", group: t("Sales"), items: [
@@ -222,7 +224,119 @@ function UpgradeDialog() {
   );
 }
 
+/* ---------------------------------------------------------------- pins & menu editing */
+
+function PinnedNav() {
+  const { t } = useT();
+  const { layout, removePin } = useLayout();
+  if (!layout.pins.length) return null;
+  return (
+    <div className="mb-4" data-testid="pinned-nav">
+      <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted/80 flex items-center gap-1"><Pin className="h-3 w-3" />{t("Pinned")}</p>
+      {layout.pins.map((p) => {
+        const Icon = ICONS[p.icon] || ICONS[PIN_TYPE_ICON[p.type]] || Bookmark;
+        return (
+          <div key={p.id} className="group relative">
+            <Link to={p.to} className="flex items-center gap-3 px-3 h-9 rounded-lg text-sm font-medium text-muted hover:text-ink hover:bg-surface-2 pr-8">
+              <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.9} /><span className="truncate">{p.label}</span>
+            </Link>
+            <button onClick={() => removePin(p.id)} className="absolute right-1.5 top-1.5 p-1 rounded-md text-muted opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-danger" aria-label={t("Unpin {name}", { name: p.label })}><X className="h-3.5 w-3.5" /></button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Owners and admins rearrange the menu for everyone in the business: order, show/hide, main list or "more". */
+function NavEditor({ base, onDone }) {
+  const { t } = useT();
+  const { layout, saveOrg, resetOrg } = useLayout();
+  const [groups, setGroups] = useState(() => {
+    const applied = applyNav(base, { ...layout.nav, hidden: [] });
+    const hidden = new Set(layout.nav.hidden || []);
+    return applied.map((g) => ({ key: g.key, group: g.group, rows: [...g.items.map((i) => ({ ...i, more: false })), ...g.more.map((i) => ({ ...i, more: true }))].map((i) => ({ ...i, hidden: hidden.has(i.to) })) }));
+  });
+  const [busy, setBusy] = useState(false);
+  const locked = (to) => to === "/app";
+  const move = (gi, i, dir) => setGroups((gs) => gs.map((g, k) => {
+    if (k !== gi) return g;
+    const rows = [...g.rows]; const j = i + dir;
+    if (j < 0 || j >= rows.length) return g;
+    [rows[i], rows[j]] = [rows[j], rows[i]];
+    return { ...g, rows };
+  }));
+  const flip = (gi, i, key) => setGroups((gs) => gs.map((g, k) => (k !== gi ? g : { ...g, rows: g.rows.map((r, j) => (j === i ? { ...r, [key]: !r[key] } : r)) })));
+  const save = async () => {
+    setBusy(true);
+    const defaultsMore = new Set(base.flatMap((g) => (g.more || []).map((i) => i.to)));
+    const rows = groups.flatMap((g) => g.rows);
+    try {
+      await saveOrg({ nav: {
+        hidden: rows.filter((r) => r.hidden).map((r) => r.to),
+        order: Object.fromEntries(groups.map((g) => [g.key || "top", g.rows.map((r) => r.to)])),
+        main: rows.filter((r) => !r.more && defaultsMore.has(r.to)).map((r) => r.to),
+        more: rows.filter((r) => r.more && !defaultsMore.has(r.to)).map((r) => r.to),
+      } });
+      toast.success(t("Menu saved for everyone in this business")); onDone();
+    } catch (e) { toast.error(e.message); }
+    setBusy(false);
+  };
+  return (
+    <div className="pb-3" data-testid="nav-editor">
+      <div className="rounded-xl bg-brand-soft text-brand text-xs px-3 py-2 mb-3">{t("Reorder with the arrows, hide what your team doesn't use, and choose what sits under “more”.")}</div>
+      {groups.map((g, gi) => (
+        <div key={g.key || gi} className="mb-3">
+          {g.group && <p className="px-1 mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted/80">{g.group}</p>}
+          {g.rows.map((r, i) => {
+            const Icon = r.icon;
+            return (
+              <div key={r.to} className={cx("flex items-center gap-1.5 h-9 px-1.5 rounded-lg text-sm", r.hidden ? "opacity-45" : "hover:bg-surface-2")} data-testid={`nav-edit-${r.to}`}>
+                <Icon className="h-4 w-4 text-muted shrink-0" /><span className={cx("flex-1 truncate", r.hidden && "line-through")}>{r.label}</span>
+                {g.key !== "top" && g.key !== "owner" && <button onClick={() => flip(gi, i, "more")} className={cx("text-[10px] font-semibold px-1.5 rounded", r.more ? "bg-surface-2 text-muted" : "text-brand")} title={t("Show in the main list or under “more”")}>{r.more ? t("more") : t("main")}</button>}
+                <button onClick={() => move(gi, i, -1)} disabled={i === 0} className="p-0.5 text-muted hover:text-ink disabled:opacity-20" aria-label={t("Move up")}><ChevronUp className="h-4 w-4" /></button>
+                <button onClick={() => move(gi, i, 1)} disabled={i === g.rows.length - 1} className="p-0.5 text-muted hover:text-ink disabled:opacity-20" aria-label={t("Move down")}><ChevronDown className="h-4 w-4" /></button>
+                <button onClick={() => flip(gi, i, "hidden")} disabled={locked(r.to)} className="p-0.5 text-muted hover:text-ink disabled:opacity-20" aria-label={r.hidden ? t("Show") : t("Hide")} data-testid={`nav-hide-${r.to}`}>{r.hidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+      <div className="flex gap-2 mt-2">
+        <Button size="sm" className="flex-1" onClick={save} loading={busy} data-testid="nav-save">{t("Save menu")}</Button>
+        <Button size="sm" variant="secondary" onClick={onDone}>{t("Cancel")}</Button>
+      </div>
+      <button className="text-xs text-muted hover:text-ink mt-2 px-1" onClick={async () => { await resetOrg("nav"); toast.success(t("Menu back to default")); onDone(); }}>{t("Reset to default")}</button>
+    </div>
+  );
+}
+
+/** Top-bar pin: pins the page you're on — including its search and filters. */
+function PinThisPage({ nav }) {
+  const { t } = useT();
+  const loc = useLocation();
+  const { layout, addPin, removePin } = useLayout();
+  const to = loc.pathname + loc.search;
+  const existing = layout.pins.find((p) => p.to === to);
+  const page = nav.flatMap((g) => [...g.items, ...(g.more || [])]).filter((i) => loc.pathname === i.to || (i.to !== "/app" && loc.pathname.startsWith(i.to))).sort((a, b) => b.to.length - a.to.length)[0];
+  if (!page || loc.pathname === "/app") return null;
+  const params = new URLSearchParams(loc.search);
+  const extra = [params.get("q") && `“${params.get("q")}”`, params.get("filter") && t(params.get("filter"))].filter(Boolean).join(" · ");
+  const label = extra ? `${page.label}: ${extra}` : page.label;
+  return (
+    <button onClick={() => (existing ? removePin(existing.id) : addPin({ type: extra ? "search" : "page", label, to, icon: iconName(page.icon) }))}
+      className={cx("p-2 rounded-xl hover:bg-surface-2", existing ? "text-brand" : "text-muted hover:text-ink")} title={existing ? t("Unpin this page") : t("Pin this page (with its search and filters)")}
+      aria-label={existing ? t("Unpin this page") : t("Pin this page")} aria-pressed={!!existing} data-testid="pin-page">
+      {existing ? <PinOff className="h-5 w-5" /> : <Pin className="h-5 w-5" />}
+    </button>
+  );
+}
+
 export default function AppShell() {
+  return <LayoutProvider><Shell /></LayoutProvider>;
+}
+
+function Shell() {
   const { user, logout } = useAuth();
   const { current, isAccountant, orgs } = useOrg();
   const { t } = useT();
@@ -234,7 +348,10 @@ export default function AppShell() {
     if (!loc.pathname.startsWith("/app/feedback")) { try { sessionStorage.setItem("tameio_last_page", loc.pathname + loc.search); } catch { /* ignore */ } }
   }, [loc.pathname, loc.search]);
   const kind = current?.kind || "business";
-  const nav = buildNav(t, { kind, isAccountant, admin: !!user?.platform_admin });
+  const baseNav = buildNav(t, { kind, isAccountant, admin: !!user?.platform_admin });
+  const { layout } = useLayout();
+  const nav = applyNav(baseNav, layout.nav);
+  const [editing, setEditing] = useState(false);
   const practiceOrg = orgs?.find((o) => o.kind === "practice");
 
   const Sidebar = (
@@ -250,7 +367,12 @@ export default function AppShell() {
           <Link to="/app/practice" className="flex items-center gap-2 text-xs font-semibold text-muted hover:text-ink px-1"><ArrowLeft className="h-3.5 w-3.5" />{t("Back to all clients")}</Link>
         )}
       </div>
-      <nav className="flex-1 overflow-y-auto px-3"><NavGroups nav={nav} /></nav>
+      <nav className="flex-1 overflow-y-auto px-3">
+        {editing ? <NavEditor base={baseNav} onDone={() => setEditing(false)} /> : <><PinnedNav /><NavGroups nav={nav} /></>}
+        {!editing && layout.can_edit && (
+          <button onClick={() => setEditing(true)} className="flex items-center gap-2 px-3 h-8 text-xs font-medium text-muted/80 hover:text-ink mb-3" data-testid="nav-edit"><SlidersHorizontal className="h-3.5 w-3.5" />{t("Edit menu")}</button>
+        )}
+      </nav>
       <div className="p-3 border-t border-line">
         <InstallApp />
         <NavItem to="/app/feedback" label={t("Help & feedback")} icon={LifeBuoy} />
@@ -292,6 +414,7 @@ export default function AppShell() {
           )}
           <div className="ml-auto flex items-center gap-1">
             {kind !== "practice" && <button onClick={() => window.dispatchEvent(new Event("tameio:palette"))} className="sm:hidden p-2 rounded-xl text-muted hover:text-ink" aria-label={t("Search")}><Search className="h-5 w-5" /></button>}
+            <PinThisPage nav={nav} />
             <Notifications />
             {kind !== "practice" && <NewMenu />}
           </div>

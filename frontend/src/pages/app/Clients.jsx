@@ -59,7 +59,7 @@ function Statement({ clientId, onClose }) {
 export default function Clients() {
   const [list, setList] = useState(null);
   const [editing, setEditing] = useState(null);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(() => new URLSearchParams(window.location.search).get("q") || "");
   const [busy, setBusy] = useState(false);
   const [importing, setImporting] = useState(false);
   const [statement, setStatement] = useState(null);
@@ -72,8 +72,9 @@ export default function Clients() {
     const o = params.get("open") && list.find((c) => c.id === params.get("open"));
     if (o) setEditing({ ...EMPTY, ...o });
     if (params.get("statement")) setStatement(params.get("statement"));
-    if (params.get("new") || params.get("open") || params.get("statement")) setParams({}, { replace: true });
+    if (params.get("new") || params.get("open") || params.get("statement")) setParams(q ? { q } : {}, { replace: true });
   }, [params, list]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { const n = new URLSearchParams(params); q ? n.set("q", q) : n.delete("q"); if (n.toString() !== params.toString()) setParams(n, { replace: true }); }, [q]); // eslint-disable-line react-hooks/exhaustive-deps
   const fill = (r) => setEditing((e) => ({ ...e, name: e.name || r.trade_name || r.name, company: e.company || r.name, address: e.address || r.address,
     city: e.city || r.city, postal_code: e.postal_code || r.postal_code, doy: e.doy || r.doy }));
 

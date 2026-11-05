@@ -344,7 +344,7 @@ export default function Invoices() {
   const [clients, setClients] = useState([]);
   const [biz, setBiz] = useState({});
   const [filter, setFilter] = useState(params.get("filter") || "all");
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(params.get("q") || "");
   const [editing, setEditing] = useState(null);
   const [mydataInv, setMydataInv] = useState(null);
   const [creditFor, setCreditFor] = useState(null);
@@ -372,8 +372,16 @@ export default function Invoices() {
       params.delete("draft"); setParams(params, { replace: true });
     }
     if (params.get("receipt")) { setReceipt(true); params.delete("receipt"); setParams(params, { replace: true }); }
-    if (params.get("q")) { setQ(params.get("q")); params.delete("q"); setParams(params, { replace: true }); }
+
   }, [params, list]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep the search and filter in the address so the view can be pinned or shared.
+  useEffect(() => {
+    const next = new URLSearchParams(params);
+    q ? next.set("q", q) : next.delete("q");
+    filter !== "all" ? next.set("filter", filter) : next.delete("filter");
+    if (next.toString() !== params.toString()) setParams(next, { replace: true });
+  }, [q, filter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const shown = useMemo(() => (list || []).filter((i) => {
     const md = i.mydata || {};

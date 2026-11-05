@@ -37,6 +37,7 @@ async def ensure_indexes():
     await d.shop_orders.create_index([("org_id", 1), ("platform", 1), ("order_id", 1)], unique=True)
     await d.partners.create_index("code", unique=True)
     await d.layouts.create_index("org_id", unique=True)
+    await d.custom_reports.create_index([("org_id", 1), ("updated_at", -1)])
     await d.pins.create_index([("user_id", 1), ("org_id", 1)], unique=True)
     await d.feedback.create_index([("status", 1), ("created_at", -1)])
     await d.error_log.create_index("key", unique=True)

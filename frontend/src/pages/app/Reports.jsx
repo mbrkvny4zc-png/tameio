@@ -1,7 +1,8 @@
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
-import { Download, Landmark } from "lucide-react";
+import { Download, Landmark, Sparkles } from "lucide-react";
 import { api, download } from "@/lib/api";
 import { money, todayISO } from "@/lib/format";
 import { Button, Card, Input, PageHeader, PageLoader, Segmented, Stat } from "@/components/ui";
@@ -28,7 +29,7 @@ export default function Reports() {
   useEffect(() => { setR(null); api.get(`/reports/summary?start=${range[0]}&end=${range[1]}`).then(setR).catch((e) => { toast.error(e.message); setR(false); }); }, [range]);
   const exp = (kind) => download(`/reports/export.csv?kind=${kind}&start=${range[0]}&end=${range[1]}`, `${kind}-${range[0]}-to-${range[1]}.csv`).catch((e) => toast.error(e.message)); return (<div className="animate-in">
       <PageHeader title={tr("Reports")} subtitle={tr("Income vs expenses, profit and your VAT position.")}
-        actions={<><Button variant="secondary" onClick={() => exp("invoices")}><Download className="h-4 w-4" />{tr("Invoices CSV")}</Button><Button variant="secondary" onClick={() => exp("expenses")}><Download className="h-4 w-4" />{tr("Expenses CSV")}</Button></>} />
+        actions={<><Link to="/app/reports/custom" className="h-10 px-4 inline-flex items-center gap-2 rounded-xl bg-brand text-white text-sm font-semibold hover:brightness-110" data-testid="open-custom-reports"><Sparkles className="h-4 w-4" />{tr("Custom reports")}</Link><Button variant="secondary" onClick={() => exp("invoices")}><Download className="h-4 w-4" />{tr("Invoices CSV")}</Button><Button variant="secondary" onClick={() => exp("expenses")}><Download className="h-4 w-4" />{tr("Expenses CSV")}</Button></>} />
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <Segmented value={preset} onChange={setPreset} options={[["month", "This month"], ["last", "Last month"], ["quarter", "This quarter"], ["year", "This year"], ["custom", "Custom"]]} />
         {preset === "custom" && <div className="flex items-center gap-2">

@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import {
   LayoutDashboard, FileText, FileSignature, ClipboardList, Users, Receipt, ShoppingCart, Truck, BarChart3, Settings, ScanLine, Bell, LogOut,
   Menu, X, ShieldCheck, Inbox, Landmark, CalendarClock, Calculator, ChevronsUpDown, Check, Building2, ArrowLeft, Sparkles,
-  ChevronDown, MessageSquareText, Package, PackageCheck, Search, Smartphone, Handshake, Gauge, LifeBuoy, Pin, PinOff, Bookmark, ChevronUp, Eye, EyeOff, SlidersHorizontal,
+  ChevronDown, MessageSquareText, Package, PackageCheck, Search, Smartphone, Handshake, Gauge, LifeBuoy, Pin, PinOff, Bookmark, ChevronUp, Eye, EyeOff, SlidersHorizontal, FileBarChart,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -54,6 +54,7 @@ function buildNav(t, { kind, isAccountant, admin }) {
       { to: "/app/mydata", label: "myDATA", icon: ShieldCheck },
     ], more: [
       { to: "/app/calendar", label: t("Tax calendar"), icon: CalendarClock },
+      { to: "/app/reports/custom", label: t("Custom reports"), icon: FileBarChart },
     ] },
     ...adminGroup,
   ];

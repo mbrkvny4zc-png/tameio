@@ -4,11 +4,11 @@ from conftest import CLIENT_AFM, make_afm
 def test_auth_flow(anon):
     c = anon
     assert c.get("/api/invoices").status_code == 401
-    assert c.post("/api/auth/signup", json={"name": "A", "email": "bad", "password": "longenough"}).status_code == 400
-    assert c.post("/api/auth/signup", json={"name": "A", "email": "a@b.gr", "password": "short"}).status_code == 400
-    r = c.post("/api/auth/signup", json={"name": "A", "email": "A@b.gr", "password": "longenough"})
+    assert c.post("/api/auth/signup", json={"accept_terms": True, "name": "A", "email": "bad", "password": "longenough"}).status_code == 400
+    assert c.post("/api/auth/signup", json={"accept_terms": True, "name": "A", "email": "a@b.gr", "password": "short"}).status_code == 400
+    r = c.post("/api/auth/signup", json={"accept_terms": True, "name": "A", "email": "A@b.gr", "password": "longenough"})
     assert r.status_code == 200 and "session" in r.cookies
-    assert c.post("/api/auth/signup", json={"name": "A", "email": "a@b.gr", "password": "longenough"}).status_code == 409
+    assert c.post("/api/auth/signup", json={"accept_terms": True, "name": "A", "email": "a@b.gr", "password": "longenough"}).status_code == 409
     assert c.get("/api/auth/me").json()["user"]["email"] == "a@b.gr"
     c.post("/api/auth/logout")
     assert c.get("/api/auth/me").status_code == 401

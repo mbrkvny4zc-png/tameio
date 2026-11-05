@@ -51,3 +51,21 @@ PARTNER_SHARE_PCT = float(os.environ.get("PARTNER_SHARE_PCT", "20"))
 
 # Production: folder with the built website (frontend/dist) to serve from the same address as the API.
 STATIC_DIR = os.environ.get("STATIC_DIR", "")
+
+
+# ------------------------------------------------------------------ legal pages
+# Version of the Terms / Privacy / DPA a user accepts at sign-up. Bump it when the documents change.
+LEGAL_VERSION = os.environ.get("LEGAL_VERSION", "2026-11-05")
+# The company that operates the service, shown on the legal pages. Set these in the hosting environment.
+LEGAL = {
+    "company": os.environ.get("LEGAL_COMPANY_NAME", ""),
+    "trade_name": os.environ.get("LEGAL_TRADE_NAME", "Tameio"),
+    "address": os.environ.get("LEGAL_ADDRESS", ""),
+    "afm": os.environ.get("LEGAL_AFM", ""),
+    "doy": os.environ.get("LEGAL_DOY", ""),
+    "gemi": os.environ.get("LEGAL_GEMI", ""),
+    "email": os.environ.get("LEGAL_EMAIL", ""),
+    "privacy_email": os.environ.get("LEGAL_PRIVACY_EMAIL", ""),
+    "phone": os.environ.get("LEGAL_PHONE", ""),
+    "courts": os.environ.get("LEGAL_COURTS", "Athens"),
+}

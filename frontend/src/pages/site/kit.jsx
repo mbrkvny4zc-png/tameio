@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { getLang, LangToggle, translate as tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { getRef } from "@/lib/referral";
+import { openConsent } from "@/lib/consent";
 
 export const NAV = [["/features", "Features"], ["/accountants", "For accountants"], ["/pricing", "Pricing"], ["/faq", "FAQ"]];
 
@@ -85,19 +86,23 @@ function Footer() {
   const cols = [
     ["Product", [["/features", "Features"], ["/features#calendar", "Calendar & reminders"], ["/features#ask", "Ask Tameio"], ["/pricing", "Pricing"]]],
     ["For accountants", [["/accountants", "Free accountant account"], ["/accountants#partners", "Partner programme"]]],
-    ["Help", [["/faq", "FAQ"], ["/privacy", "Privacy"], ["/login", "Sign in"]]],
+    ["Help", [["/faq", "FAQ"], ["/login", "Sign in"], ["/legal/notice", "Contact details"]]],
+    ["Legal", [["/legal/terms", "Terms of Service"], ["/legal/privacy", "Privacy Policy"], ["/legal/cookies", "Cookie Policy"], ["/legal/dpa", "Data Processing Agreement"], ["/legal/notice", "Legal notice"]]],
   ];
   return (
     <footer className="border-t border-[var(--p-line)]">
-      <div className="max-w-[1200px] mx-auto px-5 sm:px-8 py-12 grid sm:grid-cols-[1.2fr_repeat(3,1fr)] gap-8 text-[14px]">
-        <div>
+      <div className="max-w-[1200px] mx-auto px-5 sm:px-8 py-12 grid grid-cols-2 sm:grid-cols-[1.2fr_repeat(4,1fr)] gap-8 text-[14px]">
+        <div className="col-span-2 sm:col-span-1">
           <div className="flex items-center gap-2"><LogoMark className="h-6 w-6" /><span className="font-serif text-[20px]">{APP_NAME}</span></div>
           <p className="text-[var(--p-muted)] mt-3 max-w-[260px]">{tr("Invoicing, myDATA and books for Greek small businesses — and free for their accountants.")}</p>
         </div>
         {cols.map(([h, links]) => (
           <div key={h}>
             <p className="eyebrow">{tr(h)}</p>
-            <ul className="mt-3 space-y-2 text-[var(--p-muted)]">{links.map(([to, l]) => <li key={to}><Link to={to} className="hover:text-[var(--p-ink)]">{tr(l)}</Link></li>)}</ul>
+            <ul className="mt-3 space-y-2 text-[var(--p-muted)]">
+              {links.map(([to, l]) => <li key={to + l}><Link to={to} className="hover:text-[var(--p-ink)]">{tr(l)}</Link></li>)}
+              {h === "Legal" && <li><button onClick={openConsent} className="hover:text-[var(--p-ink)] text-left" data-testid="footer-cookie-settings">{tr("Cookie settings")}</button></li>}
+            </ul>
           </div>
         ))}
       </div>

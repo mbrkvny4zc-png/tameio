@@ -10,6 +10,7 @@ import commentsEl from "./el-comments";
 import taxEl from "./el-tax";
 import calEl from "./el-calendar";
 import site2 from "./el-site2";
+import legalEl from "./el-legal";
 
 // Greek dictionary: English source string -> Greek. Missing keys fall back to English.
-export default { ...app, ...site, ...added, ...round3, ...partners, ...adminEl, ...layoutEl, ...reportsEl, ...commentsEl, ...taxEl, ...calEl, ...site2 };
+export default { ...app, ...site, ...added, ...round3, ...partners, ...adminEl, ...layoutEl, ...reportsEl, ...commentsEl, ...taxEl, ...calEl, ...site2, ...legalEl };

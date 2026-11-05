@@ -75,7 +75,7 @@ def test_save_share_schedule_send(client, other_client, mdb):
     # a staff member sees the shared report but can't share their own
     inv = c.post("/api/team/invites", json={"email": "nikos@example.gr", "role": "staff"}).json()
     s = TestClient(create_app(with_lifespan=False))
-    s.post("/api/auth/signup", json={"name": "Nikos", "email": "nikos@example.gr", "password": "correct horse"})
+    s.post("/api/auth/signup", json={"accept_terms": True, "name": "Nikos", "email": "nikos@example.gr", "password": "correct horse"})
     s.headers["X-Org-Id"] = s.post(f"/api/invites/{inv['url'].rsplit('/', 1)[1]}/accept").json()["org_id"]
     assert [x["name"] for x in s.get("/api/custom-reports").json()] == ["Sales by client"]
     assert s.post("/api/custom-reports", json={"name": "Mine", "shared": True}).status_code == 403

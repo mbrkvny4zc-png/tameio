@@ -11,7 +11,7 @@ from conftest import run
 def firm(mdb):
     from app.main import create_app
     c = TestClient(create_app(with_lifespan=False))
-    r = c.post("/api/auth/signup", json={"name": "Eleni", "email": "eleni@logistiko.gr", "password": "correct horse",
+    r = c.post("/api/auth/signup", json={"accept_terms": True, "name": "Eleni", "email": "eleni@logistiko.gr", "password": "correct horse",
                                           "business_name": "Λογιστικό Γραφείο Παπαδόπουλος", "account_type": "accountant"})
     assert r.status_code == 200, r.text
     c.db = mdb
@@ -24,14 +24,14 @@ def admin(mdb, monkeypatch):
     from app.main import create_app
     monkeypatch.setattr(config, "PLATFORM_ADMINS", ["boss@tameio.gr"])
     c = TestClient(create_app(with_lifespan=False))
-    c.post("/api/auth/signup", json={"name": "Boss", "email": "boss@tameio.gr", "password": "correct horse"})
+    c.post("/api/auth/signup", json={"accept_terms": True, "name": "Boss", "email": "boss@tameio.gr", "password": "correct horse"})
     return c
 
 
 def _business(mdb, email, ref=""):
     from app.main import create_app
     c = TestClient(create_app(with_lifespan=False))
-    r = c.post("/api/auth/signup", json={"name": "Owner", "email": email, "password": "correct horse", "business_name": email.split("@")[0], "ref": ref})
+    r = c.post("/api/auth/signup", json={"accept_terms": True, "name": "Owner", "email": email, "password": "correct horse", "business_name": email.split("@")[0], "ref": ref})
     assert r.status_code == 200, r.text
     return c, r.json()["user"]["org_id"]
 

@@ -9,6 +9,7 @@ import Features from "@/pages/site/Features";
 import Accountants from "@/pages/site/Accountants";
 import Pricing from "@/pages/site/Pricing";
 import Faq from "@/pages/site/Faq";
+import Legal from "@/pages/site/Legal";
 import { AcceptInvite, Login, Signup } from "@/pages/Auth";
 import { translate as tr } from "@/lib/i18n";
 import { saveRef } from "@/lib/referral";
@@ -45,7 +46,6 @@ const Feedback = lazy(() => import("@/pages/app/Feedback"));
 const CustomReports = lazy(() => import("@/pages/app/CustomReports"));
 const Mentions = lazy(() => import("@/pages/app/Mentions"));
 const PublicDeliveryNote = lazy(() => import("@/pages/public/PublicDeliveryNote"));
-const Privacy = lazy(() => import("@/pages/Privacy"));
 const PaidReturn = lazy(() => import("@/pages/public/PaidReturn"));
 const PublicInvoice = lazy(() => import("@/pages/public/PublicInvoice"));
 const PublicQuote = lazy(() => import("@/pages/public/PublicQuote"));
@@ -73,9 +73,11 @@ export default function App() {
         <Route path="/accountants" element={<Accountants />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/faq" element={<Faq />} />
+        <Route path="/legal" element={<Navigate to="/legal/terms" replace />} />
+        <Route path="/legal/:doc" element={<Legal />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/privacy" element={<Navigate to="/legal/privacy" replace />} />
         <Route path="/invite/:token" element={<AcceptInvite />} />
         <Route path="/i/paid" element={<PaidReturn />} />
         <Route path="/i/:token" element={<PublicInvoice />} />

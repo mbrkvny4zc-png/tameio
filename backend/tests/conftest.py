@@ -50,7 +50,7 @@ def anon(mdb):
 
 
 def _signup(c, email):
-    r = c.post("/api/auth/signup", json={"name": "Maria", "email": email, "password": "correct horse", "business_name": "Papadopoulos Electrical"})
+    r = c.post("/api/auth/signup", json={"accept_terms": True, "name": "Maria", "email": email, "password": "correct horse", "business_name": "Papadopoulos Electrical"})
     assert r.status_code == 200, r.text
     return r
 

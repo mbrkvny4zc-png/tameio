@@ -84,7 +84,7 @@ export function Signup() {
   const { t } = useT();
   const [params] = useSearchParams();
   const nav = useNavigate();
-  const [f, setF] = useState({ name: "", business_name: "", email: params.get("email") || "", password: "", account_type: params.get("type") === "accountant" ? "accountant" : "business" });
+  const [f, setF] = useState({ name: "", business_name: "", email: params.get("email") || "", password: "", account_type: params.get("type") === "accountant" ? "accountant" : "business", accept_terms: false });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [ref] = useState(() => getRef());
@@ -118,9 +118,12 @@ export function Signup() {
         <Field label={t("Email")}><Input type="email" required autoComplete="email" value={f.email} onChange={set("email")} data-testid="signup-email" /></Field>
         <Field label={t("Password")} hint={t("At least 8 characters")}><Input type="password" required minLength={8} autoComplete="new-password" value={f.password} onChange={set("password")} data-testid="signup-password" /></Field>
         {isAcct && <p className="text-xs text-muted rounded-xl bg-surface-2 px-3 py-2">{t("Accountant accounts are free. Your clients invite you, or you add their businesses yourself.")}</p>}
+        <label className="flex items-start gap-2.5 text-[13px] leading-snug cursor-pointer" data-testid="signup-terms">
+          <input type="checkbox" required checked={f.accept_terms} onChange={(e) => setF({ ...f, accept_terms: e.target.checked })} className="mt-0.5 h-4 w-4 shrink-0 accent-[hsl(var(--brand))]" data-testid="signup-accept" />
+          <span>{t("I accept the")} <a href="/legal/terms" target="_blank" rel="noopener" className="underline">{t("Terms of Service")}</a>, {t("the")} <a href="/legal/dpa" target="_blank" rel="noopener" className="underline">{t("Data Processing Agreement")}</a> {t("and have read the")} <a href="/legal/privacy" target="_blank" rel="noopener" className="underline">{t("Privacy Policy")}</a>{t(", on behalf of my business.")}</span>
+        </label>
         {err && <p className="text-sm text-danger" role="alert">{err}</p>}
-        <Button className="w-full" size="lg" loading={busy} data-testid="signup-submit">{t("Create account")}</Button>
-        <p className="text-[11px] text-muted text-center">{t("By creating an account you agree to the")} <Link to="/privacy" className="underline">{t("privacy policy")}</Link>.</p>
+        <Button className="w-full" size="lg" loading={busy} disabled={!f.accept_terms} data-testid="signup-submit">{t("Create account")}</Button>
       </form>
     </Frame>
   );

@@ -116,6 +116,7 @@ class SignupInput(BaseModel):
     business_name: Optional[str] = ""
     account_type: Optional[str] = "business"  # "business" | "accountant"
     ref: Optional[str] = ""                    # accounting-firm referral code from /r/{code}
+    accept_terms: bool = False                 # ticked "I agree to the Terms, Privacy Policy and DPA"
 
 
 class LoginInput(BaseModel):
@@ -140,6 +141,8 @@ async def signup(data: SignupInput, request: Request, response: Response):
         raise HTTPException(status_code=400, detail="Use a password of at least 8 characters")
     if not data.name.strip():
         raise HTTPException(status_code=400, detail="Enter your name")
+    if not data.accept_terms:
+        raise HTTPException(status_code=400, detail="Please accept the Terms of Service and the Privacy Policy to continue")
     d = get_db()
     if await d.users.find_one({"email": email}):
         raise HTTPException(status_code=409, detail="An account with this email already exists")
@@ -147,7 +150,8 @@ async def signup(data: SignupInput, request: Request, response: Response):
     user_id = str(uuid.uuid4())
     org_id = await create_org(user_id, "practice" if account_type == "accountant" else "business", data.business_name or "", email)
     user = {"id": user_id, "org_id": org_id, "email": email, "name": data.name.strip(), "password": _hash(data.password),
-            "account_type": account_type, "created_at": now()}
+            "account_type": account_type, "created_at": now(),
+            "terms_accepted": {"version": config.LEGAL_VERSION, "at": now()}}
     await d.users.insert_one({**user})
     if account_type == "business" and data.ref:
         from app.routers.partners import attribute_by_code
@@ -155,6 +159,12 @@ async def signup(data: SignupInput, request: Request, response: Response):
     token = await _create_session(user_id)
     _set_cookie(response, token)
     return {"user": _public_user(user), "token": token}
+
+
+@router.get("/legal/company")
+async def legal_company():
+    """Who operates the service — shown on the public legal pages."""
+    return {**config.LEGAL, "version": config.LEGAL_VERSION}
 
 
 @router.post("/login")

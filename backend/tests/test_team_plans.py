@@ -7,7 +7,7 @@ def _client(mdb, email, account_type="business", name="Person"):
     from fastapi.testclient import TestClient
     from app.main import create_app
     c = TestClient(create_app(with_lifespan=False))
-    r = c.post("/api/auth/signup", json={"name": name, "email": email, "password": "long-password", "business_name": f"{name} Co", "account_type": account_type})
+    r = c.post("/api/auth/signup", json={"accept_terms": True, "name": name, "email": email, "password": "long-password", "business_name": f"{name} Co", "account_type": account_type})
     assert r.status_code == 200, r.text
     c.user = r.json()["user"]
     return c

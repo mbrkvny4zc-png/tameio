@@ -12,7 +12,7 @@ def owner(mdb, monkeypatch):
     monkeypatch.setattr(config, "OWNER_EMAIL", "creator@example.com")
     monkeypatch.setattr(config, "PLATFORM_ADMINS", ["creator@example.com"])
     c = TestClient(create_app(with_lifespan=False))
-    assert c.post("/api/auth/signup", json={"name": "Creator", "email": "creator@example.com", "password": "correct horse"}).status_code == 200
+    assert c.post("/api/auth/signup", json={"accept_terms": True, "name": "Creator", "email": "creator@example.com", "password": "correct horse"}).status_code == 200
     return c
 
 

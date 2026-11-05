@@ -9,7 +9,7 @@ def _staff(c, mdb, email="nikos@example.gr", name="Nikos Pappas", role="staff"):
     run(mdb.orgs.update_many({}, {"$set": {"plan": "business"}}))
     inv = c.post("/api/team/invites", json={"email": email, "role": role}).json()
     s = TestClient(create_app(with_lifespan=False))
-    s.post("/api/auth/signup", json={"name": name, "email": email, "password": "correct horse"})
+    s.post("/api/auth/signup", json={"accept_terms": True, "name": name, "email": email, "password": "correct horse"})
     s.headers["X-Org-Id"] = s.post(f"/api/invites/{inv['url'].rsplit('/', 1)[1]}/accept").json()["org_id"]
     return s, s.get("/api/auth/me").json()["user"]["id"]
 

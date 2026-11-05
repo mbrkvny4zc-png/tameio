@@ -6,6 +6,7 @@ import { relative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import { Badge, Button, Card, Field, PageHeader, Segmented, Textarea } from "@/components/ui";
 import { TaxHelpCard } from "@/components/TaxHelp";
+import { openConsent } from "@/lib/consent";
 
 export const FB_STATUS = { new: ["Received", "neutral"], in_progress: ["Being worked on", "brand"], fixed: ["Fixed", "success"], wont_fix: ["Closed", "neutral"] };
 const KIND_ICON = { bug: Bug, idea: Lightbulb, question: MessageCircleQuestion };
@@ -67,6 +68,12 @@ export default function Feedback() {
       </Card>
 
       <div className="mt-6"><TaxHelpCard /></div>
+      <p className="mt-4 text-xs text-muted flex flex-wrap gap-x-4 gap-y-1" data-testid="app-legal-links">
+        {[["/legal/terms", "Terms of Service"], ["/legal/privacy", "Privacy Policy"], ["/legal/cookies", "Cookie Policy"], ["/legal/dpa", "Data Processing Agreement"], ["/legal/notice", "Legal notice"]].map(([h, l]) => (
+          <a key={h} href={h} target="_blank" rel="noopener" className="hover:text-ink underline underline-offset-2">{t(l)}</a>
+        ))}
+        <button onClick={openConsent} className="hover:text-ink underline underline-offset-2">{t("Cookie settings")}</button>
+      </p>
 
       <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted mt-8 mb-3">{t("Your reports")}</h2>
       {mine.length === 0 ? <p className="text-sm text-muted flex items-center gap-2"><LifeBuoy className="h-4 w-4" />{t("Nothing yet.")}</p> : (

@@ -273,7 +273,20 @@ def jobs() -> dict:
         "agenda_reminders": ("Calendar reminders", "Once a day, tells each person what's due soon or overdue (in the app, and by email if they want).", agenda.agenda_reminders),
         "scheduled_reports": ("Send scheduled reports", "Emails each business's weekly (Mondays) and monthly (1st) reports to the chosen team members.", custom_reports.send_scheduled),
         "error_digest": ("Daily error digest", "Emails you a summary of new crashes and open bug reports.", error_digest),
+        "purge_logs": ("Delete old logs", "Removes error and automation logs older than 90 days and expired sign-in sessions (as promised in the Privacy Policy).", purge_logs),
     }
+
+
+async def purge_logs(days: int = 90) -> int:
+    d = get_db()
+    cut = _days_ago(days)
+    n = 0
+    n += (await d.error_log.delete_many({"last_seen": {"$lt": cut}})).deleted_count
+    n += (await d.automation_runs.delete_many({"started_at": {"$lt": cut}})).deleted_count
+    for coll in ("agenda_reminder_log", "tax_reminder_log"):
+        n += (await d[coll].delete_many({"at": {"$lt": cut}})).deleted_count
+    n += (await d.sessions.delete_many({"expires_at": {"$lt": datetime.now(timezone.utc).isoformat()}})).deleted_count
+    return n
 
 
 async def error_digest() -> int:

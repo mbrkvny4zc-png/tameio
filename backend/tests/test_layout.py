@@ -27,7 +27,7 @@ def test_staff_cannot_edit_layout_but_can_pin(client, mdb):
     run(mdb.orgs.update_many({}, {"$set": {"plan": "business"}}))  # free plan allows one member
     inv = c.post("/api/team/invites", json={"email": "nikos@example.gr", "role": "staff"}).json()
     s = TestClient(create_app(with_lifespan=False))
-    s.post("/api/auth/signup", json={"name": "Nikos", "email": "nikos@example.gr", "password": "correct horse"})
+    s.post("/api/auth/signup", json={"accept_terms": True, "name": "Nikos", "email": "nikos@example.gr", "password": "correct horse"})
     token = inv["url"].rstrip("/").split("/")[-1]
     org_id = s.post(f"/api/invites/{token}/accept").json()["org_id"]
     s.headers["X-Org-Id"] = org_id

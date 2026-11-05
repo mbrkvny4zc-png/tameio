@@ -1,6 +1,7 @@
 """Business profile (shown on documents) and customers."""
+import re
 import uuid
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -12,7 +13,8 @@ from app.db import get_db, now
 router = APIRouter(tags=["business"])
 
 BUSINESS_FIELDS = ["business_name", "business_email", "business_phone", "address", "city", "postal_code", "website",
-                   "afm", "doy", "iban", "payment_instructions", "logo"]
+                   "afm", "doy", "iban", "payment_instructions", "logo", "invoice_template", "brand_color", "invoice_footer"]
+TEMPLATES = ("classic", "modern", "minimal")
 
 
 class BusinessInput(BaseModel):
@@ -29,11 +31,15 @@ class BusinessInput(BaseModel):
     payment_instructions: Optional[str] = ""
     logo: Optional[str] = ""
     default_tax_rate: Optional[float] = 24
+    invoice_template: Optional[str] = "classic"
+    brand_color: Optional[str] = ""
+    invoice_footer: Optional[str] = ""
+    bank_accounts: Optional[List[dict]] = None
 
 
 async def get_business(org_id: str) -> dict:
     doc = await get_db().business.find_one({"org_id": org_id}, {"_id": 0}) or {}
-    return {**{k: "" for k in BUSINESS_FIELDS}, "default_tax_rate": 24, **doc}
+    return {**{k: "" for k in BUSINESS_FIELDS}, "default_tax_rate": 24, "invoice_template": "classic", "bank_accounts": [], **doc}
 
 
 @router.get("/business")
@@ -54,6 +60,20 @@ async def update_business(data: BusinessInput, ctx: Ctx = Depends(get_ctx)):
     if fields["logo"] and (len(fields["logo"]) > 700_000 or not fields["logo"].startswith("data:image/")):
         raise HTTPException(status_code=400, detail="Logo must be an image under ~500 KB")
     fields["default_tax_rate"] = data.default_tax_rate if data.default_tax_rate in gt.VAT_CATEGORIES else 24
+    fields["invoice_template"] = fields["invoice_template"] if fields["invoice_template"] in TEMPLATES else "classic"
+    if fields["brand_color"] and not re.fullmatch(r"#[0-9a-fA-F]{6}", fields["brand_color"]):
+        raise HTTPException(status_code=400, detail="Brand colour must look like #1E4FD8")
+    fields["invoice_footer"] = fields["invoice_footer"][:400]
+    if data.bank_accounts is not None:
+        accounts = []
+        for a in data.bank_accounts[:6]:
+            iban = gt.normalize_iban(str(a.get("iban") or ""))
+            if not iban:
+                continue
+            if not gt.is_valid_iban(iban):
+                raise HTTPException(status_code=400, detail=f"IBAN {iban} is not valid")
+            accounts.append({"label": str(a.get("label") or "").strip()[:60], "iban": iban})
+        fields["bank_accounts"] = accounts
     await get_db().business.update_one({"org_id": ctx.org_id}, {"$set": {**fields, "updated_at": now()}}, upsert=True)
     return await get_business(ctx.org_id)
 
@@ -72,6 +92,7 @@ class ClientInput(BaseModel):
     city: Optional[str] = ""
     postal_code: Optional[str] = ""
     notes: Optional[str] = ""
+    language: Optional[str] = "el"
 
 
 def _clean_client(data: ClientInput) -> dict:
@@ -82,7 +103,7 @@ def _clean_client(data: ClientInput) -> dict:
     if afm and country == "GR" and not gt.is_valid_afm(afm):
         raise HTTPException(status_code=400, detail="Client ΑΦΜ fails the checksum")
     out = {k: (getattr(data, k) or "").strip()[:500] for k in ("name", "company", "email", "phone", "doy", "address", "city", "postal_code", "notes")}
-    return {**out, "afm": afm, "country": country}
+    return {**out, "afm": afm, "country": country, "language": "en" if data.language == "en" else "el"}
 
 
 @router.get("/clients")
@@ -138,4 +159,4 @@ async def client_snapshot(org_id: str, client_id: Optional[str]) -> dict:
         raise HTTPException(status_code=400, detail="Client not found")
     return {"client_id": c["id"], "client_name": c["name"], "client_company": c.get("company", ""), "client_email": c.get("email", ""),
             "client_afm": c.get("afm", ""), "client_country": c.get("country", "GR"), "client_address": c.get("address", ""),
-            "client_city": c.get("city", ""), "client_postal_code": c.get("postal_code", "")}
+            "client_city": c.get("city", ""), "client_postal_code": c.get("postal_code", ""), "client_language": c.get("language", "el")}

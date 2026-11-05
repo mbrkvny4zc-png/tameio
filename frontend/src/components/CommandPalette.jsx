@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowRight, FilePlus2, FileSignature, FileText, MessageSquareText, PackageCheck, Plus, ReceiptText, ScanLine, Search, UserPlus, Users,
+  ArrowRight, FilePlus2, Sparkles, FileSignature, FileText, MessageSquareText, PackageCheck, Plus, ReceiptText, ScanLine, Search, UserPlus, Users,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { money } from "@/lib/format";
@@ -9,6 +9,7 @@ import { useT } from "@/lib/i18n";
 import { cx } from "@/components/ui";
 
 const actions = (t) => [
+  { id: "ai-draft", label: t("Write an invoice with AI"), icon: Sparkles, event: "tameio:ai-draft", keys: "ai write draft γράψε τιμολόγιο" },
   { id: "new-invoice", label: t("New invoice"), icon: FilePlus2, to: "/app/invoices?new=1", keys: "invoice τιμολογιο" },
   { id: "new-receipt", label: t("Quick receipt (counter sale)"), icon: ReceiptText, to: "/app/invoices?receipt=1", keys: "receipt αποδειξη λιανικη" },
   { id: "scan", label: t("Scan a receipt or invoice"), icon: ScanLine, to: "/app/scan", keys: "scan expense photo εξοδο" },
@@ -37,7 +38,7 @@ export function NewMenu() {
       {open && (
         <div className="absolute right-0 mt-2 w-64 card shadow-lift p-1.5 z-30 animate-in">
           {items.map(({ id, label, icon: Icon, to }) => (
-            <button key={id} onClick={() => { setOpen(false); nav(to); }} className="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm hover:bg-surface-2 text-left" data-testid={`new-${id}`}>
+            <button key={id} onClick={() => { setOpen(false); const a = items.find((x) => x.id === id); a.event ? window.dispatchEvent(new Event(a.event)) : nav(to); }} className="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm hover:bg-surface-2 text-left" data-testid={`new-${id}`}>
               <Icon className="h-4 w-4 text-muted" />{label}
             </button>
           ))}
@@ -92,7 +93,7 @@ export function CommandPalette({ nav }) {
   }, [q, data, nav, t]);
 
   if (!open) return null;
-  const pick = (r) => { setOpen(false); if (r) go(r.to); };
+  const pick = (r) => { setOpen(false); if (r?.event) window.dispatchEvent(new Event(r.event)); else if (r) go(r.to); };
   const onKey = (e) => {
     if (e.key === "ArrowDown") { e.preventDefault(); setSel((s) => Math.min(s + 1, results.length - 1)); }
     if (e.key === "ArrowUp") { e.preventDefault(); setSel((s) => Math.max(s - 1, 0)); }

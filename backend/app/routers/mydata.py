@@ -80,6 +80,7 @@ class MyDataSettingsInput(BaseModel):
     environment: Optional[str] = "simulation"
     aade_user_id: Optional[str] = ""
     subscription_key: Optional[str] = None  # None = keep existing, "" = clear
+    series_list: Optional[list] = None  # [{code, label, branch}] — e.g. A = wholesale, B = retail, or one per shop
 
 
 def _public_settings(doc: dict) -> dict:
@@ -92,7 +93,21 @@ def _public_settings(doc: dict) -> dict:
         "has_subscription_key": bool(doc.get("subscription_key_enc")),
         "subscription_key_hint": doc.get("subscription_key_hint", ""),
         "vat_number_valid": gt.is_valid_afm(doc.get("vat_number", "")),
+        "series_list": series_list(doc),
     }
+
+
+def series_list(doc: dict) -> list:
+    """All numbering series. The default series (settings.series) is always first."""
+    default = {"code": doc.get("series", "A"), "label": "", "branch": int(doc.get("branch") or 0)}
+    extra = [x for x in doc.get("series_list") or [] if x.get("code") != default["code"]]
+    stored = next((x for x in doc.get("series_list") or [] if x.get("code") == default["code"]), None)
+    return [{**default, **(stored or {})}] + extra
+
+
+def pick_series(settings: dict, wanted: Optional[str]) -> dict:
+    options = series_list(settings)
+    return next((x for x in options if wanted and x["code"] == wanted), options[0])
 
 
 async def _settings(ws: str) -> dict:
@@ -123,6 +138,25 @@ async def put_settings(data: MyDataSettingsInput, ctx: Ctx = Depends(get_ctx)):
     series = (data.series or "A").strip()[:20] or "A"
     updates = {"vat_number": vat, "branch": max(0, int(data.branch or 0)), "series": series,
                "environment": env, "aade_user_id": (data.aade_user_id or "").strip(), "updated_at": _now()}
+    if data.series_list is not None:
+        seen, clean = set(), []
+        for x in data.series_list[:20]:
+            code = str(x.get("code") or "").strip().upper()[:20]
+            if not code or code in seen:
+                continue
+            if not code.replace("-", "").replace("_", "").isalnum():
+                raise HTTPException(status_code=400, detail=f"Series “{code}” may only use letters, digits, - and _")
+            seen.add(code)
+            try:
+                branch = max(0, int(x.get("branch") or 0))
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail="Branch must be a number (0 = head office)")
+            clean.append({"code": code, "label": str(x.get("label") or "").strip()[:60], "branch": branch})
+        if series.upper() not in seen and clean:
+            series = clean[0]["code"]
+            updates["series"] = series
+        updates["series_list"] = clean
+        updates["branch"] = next((c["branch"] for c in clean if c["code"] == updates["series"]), updates["branch"])
     if data.subscription_key is not None:
         key = data.subscription_key.strip()
         if key:
@@ -169,6 +203,7 @@ class MyDataInput(BaseModel):
     classification_category: Optional[str] = ""
     classification_type: Optional[str] = ""
     correlated_mark: Optional[str] = ""
+    series: Optional[str] = ""
 
 
 def _effective_md(inv: dict, md: dict) -> dict:
@@ -189,8 +224,8 @@ async def _load_invoice(ws: str, invoice_id: str) -> dict:
     return inv
 
 
-def _issuer(settings: dict) -> dict:
-    return {"vat_number": settings.get("vat_number", ""), "branch": settings.get("branch", 0)}
+def _issuer(settings: dict, branch: Optional[int] = None) -> dict:
+    return {"vat_number": settings.get("vat_number", ""), "branch": settings.get("branch", 0) if branch is None else branch}
 
 
 async def _next_aa(ws: str, series: str, simulated: bool) -> str:
@@ -208,11 +243,12 @@ async def preview(invoice_id: str, data: MyDataInput, ctx: Ctx = Depends(get_ctx
     inv = await _load_invoice(ws, invoice_id)
     settings = await _settings(ws)
     md = _effective_md(inv, data.model_dump())
-    errors = gt.validate_for_mydata(inv, _issuer(settings), md)
+    ser = pick_series(settings, data.series or (inv.get("mydata") or {}).get("series"))
+    errors = gt.validate_for_mydata(inv, _issuer(settings, ser["branch"]), md)
     xml = None
     if not errors:
         reserved = (inv.get("mydata") or {})
-        xml = gt.build_invoices_doc(inv, _issuer(settings), md, settings.get("series", "A"), reserved.get("aa") or "(assigned on send)")
+        xml = gt.build_invoices_doc(inv, _issuer(settings, ser["branch"]), md, ser["code"], reserved.get("aa") or "(assigned on send)")
     lines = gt.compute_lines(inv)
     net = sum(float(l["net"]) for l in lines)
     vat = sum(float(l["vat"]) for l in lines)
@@ -254,7 +290,13 @@ async def submit(invoice_id: str, data: MyDataInput, ctx: Ctx = Depends(get_ctx)
         if not existing.get("simulated") or simulated:
             raise HTTPException(status_code=409, detail="This invoice already has a MARK. Cancel it first to re-issue.")
     md = _effective_md(inv, data.model_dump())
-    errors = gt.validate_for_mydata(inv, _issuer(settings), md)
+    # Card-terminal payment details recorded before issuing (e-POS) travel with the receipt.
+    for k in ("transaction_id", "terminal_id"):
+        if existing.get(k):
+            md[k] = existing[k]
+    ser = pick_series(settings, data.series or existing.get("series"))
+    issuer = _issuer(settings, ser["branch"])
+    errors = gt.validate_for_mydata(inv, issuer, md)
     if inv.get("kind") == "credit_note" and not errors:
         original = await get_db().invoices.find_one({"id": inv.get("credit_of"), "org_id": ws}, {"_id": 0}) or {}
         omd = original.get("mydata") or {}
@@ -272,13 +314,13 @@ async def submit(invoice_id: str, data: MyDataInput, ctx: Ctx = Depends(get_ctx)
     if lock.matched_count == 0:
         raise HTTPException(status_code=409, detail="This invoice is already being transmitted.")
 
-    series = settings.get("series", "A")
+    series = ser["code"]
     # Reuse a number reserved by a previous failed attempt in the same mode, so rejections leave no gaps.
     if existing.get("aa") and existing.get("series") == series and bool(existing.get("simulated")) == simulated and not existing.get("mark"):
         aa = existing["aa"]
     else:
         aa = await _next_aa(ws, series, simulated)
-    xml = gt.build_invoices_doc(inv, _issuer(settings), md, series, aa)
+    xml = gt.build_invoices_doc(inv, issuer, md, series, aa)
 
     if simulated:
         result = {"ok": True, "status": "Success", "mark": str(400000000000000 + random.randint(0, 99999999999)),
@@ -294,7 +336,7 @@ async def submit(invoice_id: str, data: MyDataInput, ctx: Ctx = Depends(get_ctx)
             log.warning("AADE transmission failed: %s", e)
             result = {"ok": False, "status": "NetworkError", "errors": [{"code": "", "message": "Could not reach AADE. Nothing was issued — try again shortly."}]}
 
-    new_md = {**md, "series": series, "aa": aa, "environment": env, "simulated": simulated,
+    new_md = {**md, "series": series, "branch": ser["branch"], "aa": aa, "environment": env, "simulated": simulated,
               "last_attempt_at": _now(), "errors": result.get("errors", [])}
     if result.get("ok"):
         new_md.update({"state": "transmitted", "mark": result.get("mark"), "uid": result.get("uid"),

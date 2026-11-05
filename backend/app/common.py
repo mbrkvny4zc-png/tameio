@@ -16,6 +16,7 @@ class Item(BaseModel):
     description: str
     qty: float = 1
     unit_price: float = 0
+    product_id: Optional[str] = None
 
     @field_validator("qty", "unit_price")
     @classmethod
@@ -47,7 +48,10 @@ def clean_items(items: List[Item]) -> List[dict]:
             continue
         if i.qty < 0 or i.unit_price < 0:
             raise HTTPException(status_code=400, detail="Quantities and prices cannot be negative")
-        out.append({"description": i.description.strip()[:500], "qty": i.qty, "unit_price": i.unit_price})
+        row = {"description": i.description.strip()[:500], "qty": i.qty, "unit_price": i.unit_price}
+        if i.product_id:
+            row["product_id"] = i.product_id[:64]
+        out.append(row)
     return out
 
 

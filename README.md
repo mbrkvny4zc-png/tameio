@@ -16,6 +16,13 @@ Invoicing, AADE myDATA e-invoicing, AI receipt scanning and supplier compliance 
 | **Retail & delivery** | Quick counter receipts (ΑΛΠ 11.1 / ΑΠΥ 11.2) reported to myDATA in one step · digital delivery notes (9.3) with ΜΑΡΚ, QR, print view and a public scan page · delivery notes drafted from an invoice |
 | **Ask Tameio** | Plain-language questions about your own books (Greek or English), answered by Claude from an aggregated snapshot — the model never queries the database |
 | **Faster entry** | ΑΦΜ auto-fill (EU VIES, or AADE's registry service when credentials are set) · saved products & services · duplicate invoice · Excel/CSV import of clients, products and past invoices with column auto-matching |
+| **Greek tax details** | Withholding tax (myDATA table 8.4) and stamp duty (8.6) per invoice, carried into credit notes · several numbering series, each tied to a branch · sales invoice that is also the delivery note (1.1 + isDeliveryNote) |
+| **Getting paid** | Part payments with running balance · client statement (καρτέλα πελάτη) on screen and as PDF · card-terminal receipts via Viva Cloud Terminal (beta) |
+| **Write with AI** | One sentence → a drafted invoice, receipt or quote, matched to saved clients and products, for review before issuing |
+| **Look & language** | Three invoice designs, brand colour, footer, several bank accounts · Greek or English documents per client |
+| **Online shops** | WooCommerce and Shopify webhooks (HMAC-signed) turn paid orders into receipts, or invoices when the buyer gives a ΑΦΜ, and report them |
+| **Stock** | Optional per product: sales and receipts take stock out, credit notes put it back, low-stock alerts, manual adjustments |
+| **Phone app** | Installable PWA with home-screen shortcuts (scan, quick receipt, new invoice); the API is never cached |
 | **Ease of use** | Grouped, shorter menu · Ctrl/⌘+K search · "+ New" menu · first-run checklist with removable sample data · Settings in four tabs |
 
 ## Stack
@@ -66,4 +73,7 @@ and any file named like a target, e.g. `taverna.jpg`, is used as-is) and run `py
 - **Pricing** on the landing page (`PLANS` in `frontend/src/pages/Landing.jsx`) is placeholder; there's no billing yet.
 - **Email** needs a Resend API key and a verified sending domain.
 - **Delivery notes (9.3)** follow the published myDATA fields (move purpose, addresses, dispatch date/time, vehicle, `isDeliveryNote`). AADE's digital delivery-note rollout adds lifecycle steps (e.g. transfer completion) that aren't implemented yet — test in `mydataapidev` and confirm with an accountant.
+- **Withholding / stamp-duty codes** follow myDATA tables 8.4 and 8.6 as published; check them against the current AADE appendix. Only the percentage-based withholding codes (1–10) are offered.
+- **Card terminal (e-POS)** uses Viva's Cloud Terminal API (`/ecr/v1`) and has not been run against a real terminal. The Greek e-POS protocol also needs a licensed provider's signature (`aadeProvider*` fields), which comes with the provider partnership.
+- **Online shops:** a Shopify order with several VAT rates is saved for review instead of being reported (Tameio documents use one VAT rate).
 - **ΑΦΜ lookup** uses EU VIES by default (name + address for VAT-registered businesses). For ΔΟΥ and activities, set `AADE_REGISTRY_USER` / `AADE_REGISTRY_PASS` (AADE "Αναζήτηση Βασικών Στοιχείων Μητρώου" credentials).

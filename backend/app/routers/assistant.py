@@ -93,3 +93,67 @@ async def ask(data: AskInput, request: Request, ctx: Ctx = Depends(get_ctx)):
         raise HTTPException(status_code=503, detail=str(e))
     await get_db().ask_log.insert_one({"org_id": ctx.org_id, "user_id": ctx.user_id, "question": q, "answer": out.get("answer"), "created_at": now()})
     return out
+
+
+# ------------------------------------------------------------------ "Write the invoice for me"
+
+class DraftInput(BaseModel):
+    text: str
+
+
+@router.post("/ai/draft-invoice")
+async def draft_invoice(data: DraftInput, request: Request, ctx: Ctx = Depends(get_ctx)):
+    """Sentence -> reviewed draft. Nothing is saved: the app opens the normal editor pre-filled."""
+    text = (data.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Describe the invoice, e.g. “Kafeneio Plaka, 3 hours of electrical work”")
+    if len(text) > 1000:
+        raise HTTPException(status_code=400, detail="Keep it under 1000 characters")
+    rate_limit(request, f"draft:{ctx.org_id}", 60)
+    d = get_db()
+    clients = await d.clients.find({"org_id": ctx.org_id, "sample": {"$ne": True}}, {"_id": 0}).to_list(2000)
+    products = await d.products.find({"org_id": ctx.org_id}, {"_id": 0}).sort("uses", -1).to_list(2000)
+    try:
+        out = await ai.draft_invoice(
+            text, [{"id": c["id"], "name": c["name"], "company": c.get("company", ""), "afm": c.get("afm", "")} for c in clients[:400]],
+            [{"id": p["id"], "name": p["name"], "price": p["unit_price"], "vat": p["tax_rate"]} for p in products[:400]])
+    except ai.ScanError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    return resolve_draft(out, clients, products)
+
+
+def resolve_draft(out: dict, clients: list, products: list) -> dict:
+    """Trust only ids that exist; fill saved prices; convert VAT-inclusive prices to net."""
+    from app import greek_tax as gt
+    by_id = {p["id"]: p for p in products}
+    client = next((c for c in clients if c["id"] == out.get("client_id")), None)
+    if not client and out.get("client_afm"):
+        client = next((c for c in clients if c.get("afm") and c["afm"] == gt.normalize_afm(out["client_afm"])), None)
+    first_product = next((by_id[i["product_id"]] for i in out.get("items") or [] if i.get("product_id") in by_id), None)
+    rate = out.get("tax_rate")
+    if rate is None:
+        rate = first_product["tax_rate"] if first_product else 24
+    items, missing = [], []
+    for i in out.get("items") or []:
+        p = by_id.get(i.get("product_id"))
+        price = i.get("unit_price")
+        if price is not None and out.get("prices_include_vat"):
+            price = round(price / (1 + rate / 100), 4)
+        if price is None and p:
+            price = p["unit_price"]
+        if price is None:
+            missing.append(i.get("description") or "")
+        row = {"description": (i.get("description") or (p or {}).get("name") or "").strip()[:500], "qty": i.get("qty") or 1, "unit_price": price if price is not None else ""}
+        if p:
+            row["product_id"] = p["id"]
+        items.append(row)
+    questions = list(out.get("questions") or [])
+    if missing:
+        questions.append("Add a price for: " + ", ".join(m for m in missing if m))
+    return {"doc_kind": out.get("doc_kind") or "invoice",
+            "client_id": client["id"] if client else None,
+            "client_name": client["name"] if client else (out.get("client_name") or ""),
+            "client_afm": (client or {}).get("afm") or gt.normalize_afm(out.get("client_afm") or ""),
+            "items": items or [{"description": "", "qty": 1, "unit_price": ""}], "tax_rate": rate,
+            "due_in_days": out.get("due_in_days"), "notes": out.get("notes") or "", "questions": questions,
+            "matched_client": bool(client)}

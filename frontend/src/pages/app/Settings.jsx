@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import QRCode from "qrcode";
-import { Building2, Copy, CreditCard, Download, FileSpreadsheet, Plug, ImagePlus, KeyRound, Mail, RefreshCw, ShieldCheck, Sparkles, Tags, Trash2, Users, X } from "lucide-react";
+import { Building2, Copy, CreditCard, Download, FileSpreadsheet, Palette, Plug, ShoppingBag, Smartphone, ImagePlus, KeyRound, Mail, RefreshCw, ShieldCheck, Sparkles, Tags, Trash2, Users, X } from "lucide-react";
 import { api, download } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { VAT_RATES, date } from "@/lib/format";
@@ -73,8 +73,122 @@ function BusinessTab() {
           <Field label={t("Payment instructions")} className="sm:col-span-2"><Textarea value={f.payment_instructions} onChange={set("payment_instructions")} placeholder={t("e.g. Please include the invoice number as the payment reference.")} /></Field>
         </div>
       </Card>
+      <Card className="p-5 sm:p-6">
+        <div className="flex items-center gap-2 mb-1"><Palette className="h-4 w-4 text-brand" /><p className="font-bold">{t("Invoice design")}</p></div>
+        <p className="text-sm text-muted mb-5">{t("How your printed invoices, receipts and statements look.")}</p>
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          {[["classic", "Classic"], ["modern", "Modern"], ["minimal", "Minimal"]].map(([k, l]) => (
+            <button type="button" key={k} onClick={() => setF({ ...f, invoice_template: k })} data-testid={`tpl-${k}`}
+              className={cx("rounded-xl border p-3 text-left transition", (f.invoice_template || "classic") === k ? "border-brand ring-2 ring-brand/20" : "border-line hover:border-ink/30")}>
+              <div className="h-16 rounded-lg bg-white border border-line overflow-hidden relative">
+                {k === "modern" && <div className="h-5" style={{ background: f.brand_color || "#1E4FD8" }} />}
+                {k === "classic" && <div className="h-1" style={{ background: f.brand_color || "#1E4FD8" }} />}
+                <div className={cx("px-2 pt-2 space-y-1", k === "minimal" && "pt-3")}>
+                  <div className={cx("h-1.5 rounded", k === "minimal" ? "w-10 bg-ink/70" : "w-14 bg-ink/40")} /><div className="h-1 w-20 rounded bg-ink/15" /><div className="h-1 w-16 rounded bg-ink/15" />
+                </div>
+              </div>
+              <p className="text-sm font-semibold mt-2">{t(l)}</p>
+            </button>
+          ))}
+        </div>
+        <div className="grid sm:grid-cols-[160px_1fr] gap-4">
+          <Field label={t("Brand colour")}><div className="flex gap-2"><input type="color" value={f.brand_color || "#1E4FD8"} onChange={set("brand_color")} className="h-10 w-12 rounded-lg border border-line bg-surface" aria-label={t("Brand colour")} /><Input value={f.brand_color || ""} onChange={set("brand_color")} placeholder="#1E4FD8" /></div></Field>
+          <Field label={t("Footer text")} hint={t("e.g. registration number, opening hours, a thank-you note")}><Input value={f.invoice_footer || ""} onChange={set("invoice_footer")} maxLength={400} /></Field>
+        </div>
+        <div className="mt-5">
+          <p className="label">{t("Other bank accounts")}</p>
+          <div className="space-y-2">
+            {(f.bank_accounts || []).map((a, i) => (
+              <div key={i} className="grid grid-cols-[140px_1fr_36px] gap-2">
+                <Input placeholder={t("Bank")} value={a.label} onChange={(e) => setF({ ...f, bank_accounts: f.bank_accounts.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })} />
+                <Input placeholder="GR.." value={a.iban} onChange={(e) => setF({ ...f, bank_accounts: f.bank_accounts.map((x, j) => (j === i ? { ...x, iban: e.target.value } : x)) })} />
+                <IconBtn icon={X} label={t("Remove")} onClick={() => setF({ ...f, bank_accounts: f.bank_accounts.filter((_, j) => j !== i) })} />
+              </div>
+            ))}
+          </div>
+          <Button type="button" variant="ghost" size="sm" className="-ml-2 mt-1" onClick={() => setF({ ...f, bank_accounts: [...(f.bank_accounts || []), { label: "", iban: "" }] })}>+ {t("Add bank account")}</Button>
+          <p className="text-[11px] text-muted">{t("Pick which account to show on each invoice.")}</p>
+        </div>
+      </Card>
       <div className="flex justify-end"><Button size="lg" loading={busy} data-testid="biz-save">{t("Save changes")}</Button></div>
     </form>
+  );
+}
+
+function ShopsTab() {
+  const { t } = useT();
+  const [list, setList] = useState(null);
+  const [created, setCreated] = useState(null);
+  const load = () => api.get("/shops").then(setList).catch(() => setList([]));
+  useEffect(() => { load(); }, []);
+  if (!list) return <PageLoader />;
+  const add = async (platform) => { try { setCreated(await api.post("/shops", { platform, mode: "invoice_if_vat", auto_mydata: true })); load(); } catch (e) { toast.error(e.message); } };
+  const del = async (s) => { if (window.confirm(t("Disconnect {name}?", { name: s.name }))) { await api.del(`/shops/${s.id}`); load(); } };
+  const copy = (v) => navigator.clipboard?.writeText(v).then(() => toast.success(t("Copied")));
+  return (
+    <Card className="p-5 sm:p-6 space-y-4">
+      <div className="flex items-center gap-2"><ShoppingBag className="h-4 w-4 text-brand" /><p className="font-bold">{t("Online shop")}</p></div>
+      <p className="text-sm text-muted">{t("Paid orders from WooCommerce or Shopify become receipts automatically — or invoices when the buyer gives a ΑΦΜ — and are reported to myDATA.")}</p>
+      {list.map((s) => (
+        <div key={s.id} className="rounded-xl border border-line p-3 flex flex-wrap items-center gap-3 text-sm">
+          <Badge tone="brand">{s.platform === "shopify" ? "Shopify" : "WooCommerce"}</Badge><span className="font-semibold">{s.name}</span>
+          <span className="text-muted">{t("{n} orders", { n: s.orders || 0 })}</span>
+          <button onClick={() => copy(s.webhook_url)} className="text-xs text-brand font-semibold inline-flex items-center gap-1"><Copy className="h-3 w-3" />{t("Copy webhook URL")}</button>
+          <IconBtn icon={Trash2} label={t("Disconnect")} tone="danger" className="ml-auto" onClick={() => del(s)} />
+        </div>
+      ))}
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" onClick={() => add("woocommerce")} data-testid="shop-add-woo">+ WooCommerce</Button>
+        <Button variant="secondary" onClick={() => add("shopify")} data-testid="shop-add-shopify">+ Shopify</Button>
+      </div>
+      <Modal open={!!created} onClose={() => setCreated(null)} title={t("Connect {name}", { name: created?.platform === "shopify" ? "Shopify" : "WooCommerce" })}
+        description={t("Copy these into your shop now — the secret is shown only once.")}>
+        {created && (
+          <div className="space-y-3 text-sm" data-testid="shop-created">
+            <Field label={t("Webhook URL")}><div className="flex gap-2"><Input readOnly value={created.webhook_url} /><Button variant="secondary" onClick={() => copy(created.webhook_url)}><Copy className="h-4 w-4" /></Button></div></Field>
+            <Field label={t("Secret")}><div className="flex gap-2"><Input readOnly value={created.secret} className="font-mono" /><Button variant="secondary" onClick={() => copy(created.secret)}><Copy className="h-4 w-4" /></Button></div></Field>
+            <ol className="list-decimal pl-5 text-muted space-y-1">
+              {created.platform === "shopify"
+                ? <><li>{t("Shopify admin → Settings → Notifications → Webhooks → Create webhook.")}</li><li>{t("Event: Order payment. Format: JSON. Paste the URL.")}</li><li>{t("Shopify signs webhooks with its own key: paste that key here as the secret instead (Shopify shows it under the webhook list).")}</li></>
+                : <><li>{t("WooCommerce → Settings → Advanced → Webhooks → Add webhook.")}</li><li>{t("Topic: Order updated. Delivery URL: the URL above. Secret: the secret above.")}</li></>}
+            </ol>
+            {created.platform === "shopify" && <ShopifySecret shop={created} onSaved={() => { setCreated(null); load(); }} />}
+          </div>
+        )}
+      </Modal>
+    </Card>
+  );
+}
+
+function ShopifySecret({ shop, onSaved }) {
+  const { t } = useT();
+  const [secret, setSecret] = useState("");
+  const save = async () => {
+    try { await api.del(`/shops/${shop.id}`); const s = await api.post("/shops", { platform: "shopify", name: "Shopify", secret, mode: "invoice_if_vat", auto_mydata: true }); toast.success(t("Saved")); navigator.clipboard?.writeText(s.webhook_url); onSaved(); }
+    catch (e) { toast.error(e.message); }
+  };
+  return <div className="flex gap-2"><Input placeholder={t("Shopify webhook signing key")} value={secret} onChange={(e) => setSecret(e.target.value)} /><Button onClick={save} disabled={secret.length < 16}>{t("Save")}</Button></div>;
+}
+
+function TerminalTab() {
+  const { t } = useT();
+  const [p, setP] = useState(null);
+  useEffect(() => { api.get("/pos/settings").then(setP).catch(() => {}); }, []);
+  if (!p) return <PageLoader />;
+  const save = async () => { try { setP(await api.put("/pos/settings", p)); toast.success(t("Saved")); } catch (e) { toast.error(e.message); } };
+  return (
+    <Card className="p-5 sm:p-6 space-y-4">
+      <div className="flex items-center gap-2"><Smartphone className="h-4 w-4 text-brand" /><p className="font-bold">{t("Card terminal (POS)")}</p><Badge tone="warn" className="ml-auto">{t("Beta")}</Badge></div>
+      <p className="text-sm text-muted">{t("Send the receipt amount straight to your Viva card terminal. When the customer pays, the receipt is issued with the terminal's transaction details, as the e-POS linking rules require.")}</p>
+      {!p.viva_ready && <p className="text-xs text-warn">{t("Connect Viva Wallet above first (client ID and secret).")}</p>}
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Field label={t("Terminal ID")} hint={t("Shown in the Viva app on the terminal")}><Input value={p.terminal_id} onChange={(e) => setP({ ...p, terminal_id: e.target.value })} data-testid="pos-terminal" /></Field>
+        <Field label={t("Cash register name")}><Input value={p.cash_register_id} onChange={(e) => setP({ ...p, cash_register_id: e.target.value })} placeholder="TAMEIO-1" /></Field>
+      </div>
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[hsl(var(--brand))]" checked={p.simulate} onChange={(e) => setP({ ...p, simulate: e.target.checked })} data-testid="pos-simulate" />{t("Practice mode (no real terminal — payments approve automatically)")}</label>
+      <p className="text-[11px] text-muted">{t("The full Greek e-POS protocol also needs a signature from a licensed e-invoicing provider; that part arrives with the provider connection.")}</p>
+      <div className="flex justify-end"><Button onClick={save}>{t("Save")}</Button></div>
+    </Card>
   );
 }
 
@@ -385,7 +499,8 @@ export default function Settings() {
       {tab === "team" && <div className="space-y-8"><Section title={t("Team")}><TeamTab /></Section><Section title={t("Plan")}><PlanTab /></Section></div>}
       {tab === "connections" && (
         <div className="space-y-8">
-          <Section title={t("Card payments")}><PaymentsTab /></Section>
+          <Section title={t("Card payments")}><PaymentsTab /><TerminalTab /></Section>
+          <Section title={t("Online shop")}><ShopsTab /></Section>
           <Section title={t("Receipts by email")}><InboxTab /></Section>
           <Section title={t("myDATA classification codes")}><CodesTab /></Section>
         </div>

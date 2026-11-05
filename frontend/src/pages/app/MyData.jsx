@@ -23,7 +23,9 @@ export default function MyData() {
   const save = async (e) => {
     e.preventDefault(); setBusy(true);
     try {
-      const body = { vat_number: form.vat_number, branch: parseInt(form.branch, 10) || 0, series: form.series, environment: form.environment, aade_user_id: form.aade_user_id };
+      const list = (form.series_list || []).filter((x) => x.code.trim());
+      const body = { vat_number: form.vat_number, branch: parseInt(form.branch, 10) || 0, series: list[0]?.code || form.series, environment: form.environment, aade_user_id: form.aade_user_id,
+        series_list: list.map((x) => ({ ...x, branch: parseInt(x.branch, 10) || 0 })) };
       if (form.subscription_key) body.subscription_key = form.subscription_key;
       const r = await api.put("/mydata/settings", body);
       setS(r); setForm({ ...r, subscription_key: "" }); toast.success(tr("myDATA settings saved"));
@@ -38,10 +40,23 @@ export default function MyData() {
           <form onSubmit={save} className="space-y-4">
             <div className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-brand" /><p className="font-bold">{tr("AADE connection")}</p><Badge tone={E.tone} className="ml-auto">{tr(E.label)}</Badge></div>
             <div className="grid grid-cols-3 gap-3">
-              <Field label={tr("Business ΑΦΜ")} className="col-span-2"><Input value={form.vat_number} onChange={(e) => setForm({ ...form, vat_number: e.target.value })} placeholder={tr("from your business profile")} /></Field>
-              <Field label={tr("Branch")}><Input type="number" min={0} value={form.branch} onChange={(e) => setForm({ ...form, branch: e.target.value })} /></Field>
+              <Field label={tr("Business ΑΦΜ")} className="col-span-3"><Input value={form.vat_number} onChange={(e) => setForm({ ...form, vat_number: e.target.value })} placeholder={tr("from your business profile")} /></Field>
             </div>
-            <Field label={tr("Invoice series")} hint={tr("Numbers in a series are gap-free and assigned when a document is reported.")}><Input value={form.series} onChange={(e) => setForm({ ...form, series: e.target.value })} /></Field>
+            <div>
+              <p className="label">{tr("Numbering series")}</p>
+              <div className="space-y-2" data-testid="series-list">
+                {(form.series_list || []).map((x, i) => (
+                  <div key={i} className="grid grid-cols-[64px_1fr_64px_32px] gap-2">
+                    <Input value={x.code} onChange={(e) => setForm({ ...form, series_list: form.series_list.map((y, j) => (j === i ? { ...y, code: e.target.value.toUpperCase() } : y)) })} aria-label={tr("Series")} />
+                    <Input value={x.label} placeholder={i === 0 ? tr("Main (default)") : tr("e.g. Retail, Shop 2")} onChange={(e) => setForm({ ...form, series_list: form.series_list.map((y, j) => (j === i ? { ...y, label: e.target.value } : y)) })} />
+                    <Input type="number" min={0} value={x.branch} title={tr("Branch (0 = head office)")} onChange={(e) => setForm({ ...form, series_list: form.series_list.map((y, j) => (j === i ? { ...y, branch: e.target.value } : y)) })} aria-label={tr("Branch")} />
+                    <button type="button" disabled={i === 0} onClick={() => setForm({ ...form, series_list: form.series_list.filter((_, j) => j !== i) })} className="text-muted hover:text-danger disabled:opacity-20" aria-label={tr("Remove")}>×</button>
+                  </div>
+                ))}
+              </div>
+              <button type="button" className="text-xs font-semibold text-brand mt-1.5" onClick={() => setForm({ ...form, series_list: [...(form.series_list || []), { code: "", label: "", branch: 0 }] })} data-testid="series-add">+ {tr("Add series")}</button>
+              <p className="text-[11px] text-muted mt-1">{tr("Code · name · branch number (0 = head office). Numbers in each series are gap-free and assigned when a document is reported.")}</p>
+            </div>
             <Field label={tr("Mode")} hint={tr(ENV_META[form.environment].hint)}>
               <Select value={form.environment} onChange={(e) => setForm({ ...form, environment: e.target.value })} data-testid="mydata-env">
                 {Object.entries(ENV_META).map(([k, m]) => <option key={k} value={k}>{tr(m.label)}</option>)}

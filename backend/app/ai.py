@@ -231,3 +231,64 @@ async def ask_numbers(question: str, data: dict, history: list) -> dict:
         return json.loads(text)
     except json.JSONDecodeError:
         raise ScanError("The AI response was incomplete — please try again.")
+
+
+# ------------------------------------------------------------------ "Write the invoice for me"
+
+DRAFT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "doc_kind": {"type": "string", "enum": ["invoice", "receipt", "quote"]},
+        "client_id": _str, "client_name": _str, "client_afm": _str,
+        "items": {"type": "array", "items": {"type": "object", "properties": {
+            "product_id": _str, "description": {"type": "string"}, "qty": {"type": "number"}, "unit_price": _num},
+            "required": ["product_id", "description", "qty", "unit_price"], "additionalProperties": False}},
+        "prices_include_vat": {"type": "boolean"},
+        "tax_rate": {"anyOf": [{"type": "integer", "enum": [24, 13, 6, 17, 9, 4, 0]}, {"type": "null"}]},
+        "due_in_days": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+        "notes": {"type": "string"},
+        "questions": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["doc_kind", "client_id", "client_name", "client_afm", "items", "prices_include_vat", "tax_rate", "due_in_days", "notes", "questions"],
+    "additionalProperties": False,
+}
+
+DRAFT_SYSTEM = """You turn a Greek small-business owner's sentence into a draft sales document. They will review it before anything is issued.
+Rules:
+- Match the client to one of the listed clients (use its id) when the name, nickname or ΑΦΜ clearly fits; otherwise client_id null and put the name/ΑΦΜ as written.
+- Match each line to a listed product (use its id) when it clearly fits; copy the description in the user's wording or the product name.
+- unit_price: use the price the user said; else null (the app fills in saved product prices). Never invent prices.
+- If the user gave a total or VAT-inclusive price ("με ΦΠΑ", "including VAT", "τελική"), set prices_include_vat true.
+- doc_kind: "receipt" for a walk-in / retail sale, "quote" for an offer/προσφορά, otherwise "invoice".
+- tax_rate only if the user said one, else null. due_in_days only if they said when it's due.
+- notes: only text the user explicitly wants printed on the document, else "".
+- questions: short questions (in the user's language) about anything essential that's missing or ambiguous; [] if none."""
+
+
+async def draft_invoice(text: str, clients: list, products: list) -> dict:
+    if not config.AI_SCAN_ENABLED:
+        raise ScanError("AI is turned off on this server.")
+    listing = json.dumps({"clients": clients, "products": products}, ensure_ascii=False)
+    try:
+        client = anthropic.AsyncAnthropic(timeout=60.0, max_retries=2)
+        resp = await client.beta.messages.create(
+            model=config.ANTHROPIC_MODEL, max_tokens=4000, system=DRAFT_SYSTEM,
+            messages=[{"role": "user", "content": f"<catalog>\n{listing}\n</catalog>\n\nRequest: {text}"}],
+            output_config={"effort": "low", "format": {"type": "json_schema", "schema": DRAFT_SCHEMA}},
+            betas=["server-side-fallback-2026-07-01"], fallbacks="default")
+    except anthropic.AuthenticationError:
+        raise ScanError("AI isn't configured on the server (missing or invalid Anthropic API key).")
+    except (anthropic.RateLimitError, anthropic.APIConnectionError, anthropic.APIStatusError) as e:
+        log.warning("Draft failed: %s", e)
+        raise ScanError("The AI service is unavailable right now — try again shortly.")
+    except Exception as e:
+        if "api_key" in str(e).lower() or "auth" in str(e).lower():
+            raise ScanError("AI isn't configured on the server (missing Anthropic API key).")
+        raise
+    if resp.stop_reason in ("refusal", "max_tokens"):
+        raise ScanError("I couldn't turn that into an invoice — try describing the client and what you sold.")
+    text_out = next((b.text for b in resp.content if b.type == "text"), "")
+    try:
+        return json.loads(text_out)
+    except json.JSONDecodeError:
+        raise ScanError("The AI response was incomplete — please try again.")

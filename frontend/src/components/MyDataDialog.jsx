@@ -38,7 +38,7 @@ export function MyDataDialog({ invoice, onClose, onChanged }) {
   useEffect(() => {
     if (!invoice) return;
     setForm({
-      invoice_type: md.invoice_type || "2.1", payment_method: md.payment_method || 1,
+      invoice_type: md.invoice_type || (invoice.delivery ? "1.1" : "2.1"), payment_method: md.payment_method || 1, series: md.series || "",
       counterpart_vat: md.counterpart_vat || invoice.client_afm || "", counterpart_country: md.counterpart_country || invoice.client_country || "GR",
       counterpart_name: md.counterpart_name || invoice.client_company || invoice.client_name || "",
       counterpart_street: md.counterpart_street || invoice.client_address || "", counterpart_city: md.counterpart_city || invoice.client_city || "",
@@ -126,6 +126,13 @@ export function MyDataDialog({ invoice, onClose, onChanged }) {
                       {codes.invoice_types.filter((t) => t.code !== "5.1").map((t) => <option key={t.code} value={t.code}>{t.code} · {t.label}</option>)}
                     </Select>
                   </Field>
+                  {settings.series_list?.length > 1 && (
+                    <Field label={tr("Series")}>
+                      <Select value={form.series || settings.series} onChange={(e) => set("series", e.target.value)} data-testid="mydata-series">
+                        {settings.series_list.map((x) => <option key={x.code} value={x.code}>{x.code}{x.label ? ` · ${x.label}` : ""}{x.branch ? ` · ${tr("branch")} ${x.branch}` : ""}</option>)}
+                      </Select>
+                    </Field>
+                  )}
                   <Field label={tr("Payment method")}>
                     <Select value={form.payment_method} onChange={(e) => set("payment_method", parseInt(e.target.value, 10))}>
                       {codes.payment_methods.map((p) => <option key={p.code} value={p.code}>{p.label}</option>)}

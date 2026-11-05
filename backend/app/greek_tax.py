@@ -64,6 +64,23 @@ CREDIT_TYPES = {"5.1"}
 RETAIL_TYPES = {"11.1", "11.2"}
 FOREIGN_TYPES = {"1.2", "1.3", "2.2", "2.3"}
 
+# Withholding tax — myDATA table 8.4 (withheldPercentCategory). Only the percentage-based codes are offered;
+# verify against the current AADE appendix before going live.
+WITHHOLDING = {
+    1: ("Interest (Τόκοι)", 15),
+    2: ("Royalties (Δικαιώματα)", 20),
+    3: ("Professional / management fees (Αμοιβές συμβουλών διοίκησης)", 20),
+    4: ("Technical works (Τεχνικά έργα)", 3),
+    5: ("Fuel & tobacco products (Υγρά καύσιμα & καπνικά)", 1),
+    6: ("Other goods (Λοιπά αγαθά)", 4),
+    7: ("Services (Παροχή υπηρεσιών)", 8),
+    8: ("Architects & engineers — studies (Μελέτες & σχέδια)", 4),
+    9: ("Architects & engineers — other works (Λοιπά έργα)", 10),
+    10: ("Lawyers' fees (Αμοιβές δικηγόρων)", 15),
+}
+# Stamp duty — myDATA table 8.6 (stampDutyPercentCategory)
+STAMP_DUTY = {1: ("Stamp duty 1.2% (Χαρτόσημο 1,2%)", 1.2), 2: ("Stamp duty 2.4% (Χαρτόσημο 2,4%)", 2.4), 3: ("Stamp duty 3.6% (Χαρτόσημο 3,6%)", 3.6)}
+
 # VAT rate (%) -> myDATA vatCategory
 VAT_CATEGORIES = {24: 1, 13: 2, 6: 3, 17: 4, 9: 5, 4: 6, 0: 7}
 
@@ -117,15 +134,32 @@ def _s(v: Decimal) -> str:
 
 
 def compute_lines(invoice: dict) -> list[dict]:
-    """Per-line net/VAT amounts as myDATA expects them (rounded per line)."""
+    """Per-line net/VAT/withholding/stamp amounts as myDATA expects them (rounded per line)."""
     rate = int(round(float(invoice.get("tax_rate") or 0)))
+    wcat = int(invoice.get("withholding_category") or 0)
+    scat = int(invoice.get("stamp_category") or 0)
+    wpct = _d(WITHHOLDING[wcat][1]) if wcat in WITHHOLDING else Decimal(0)
+    spct = _d(STAMP_DUTY[scat][1]) if scat in STAMP_DUTY else Decimal(0)
     lines = []
     for idx, item in enumerate(invoice.get("items") or [], start=1):
         net = _r(_d(item.get("qty")) * _d(item.get("unit_price")))
         vat = _r(net * Decimal(rate) / Decimal(100))
-        lines.append({"line_number": idx, "description": item.get("description", ""),
-                      "net": net, "vat": vat, "vat_rate": rate})
+        lines.append({"line_number": idx, "description": item.get("description", ""), "qty": _d(item.get("qty")),
+                      "net": net, "vat": vat, "vat_rate": rate,
+                      "withheld": _r(net * wpct / Decimal(100)), "withheld_cat": wcat if wpct else 0,
+                      "stamp": _r(net * spct / Decimal(100)), "stamp_cat": scat if spct else 0})
     return lines
+
+
+def document_totals(items: list, tax_rate, withholding_category=0, stamp_category=0) -> dict:
+    """Net, VAT, withholding, stamp duty and the amount the client actually pays — summed per line like myDATA."""
+    lines = compute_lines({"items": items, "tax_rate": tax_rate, "withholding_category": withholding_category, "stamp_category": stamp_category})
+    net = sum((l["net"] for l in lines), Decimal(0))
+    vat = sum((l["vat"] for l in lines), Decimal(0))
+    wh = sum((l["withheld"] for l in lines), Decimal(0))
+    st = sum((l["stamp"] for l in lines), Decimal(0))
+    return {"net": float(net), "vat": float(vat), "withheld": float(wh), "stamp_duty": float(st),
+            "gross": float(net + vat), "payable": float(net + vat + st - wh)}
 
 
 def validate_for_mydata(invoice: dict, issuer: dict, md: dict) -> list[str]:
@@ -150,6 +184,18 @@ def validate_for_mydata(invoice: dict, issuer: dict, md: dict) -> list[str]:
         errors.append("0% VAT needs a VAT exemption category (ΑΑΔΕ table code).")
     if int(md.get("payment_method") or 0) not in PAYMENT_METHODS:
         errors.append("Choose a payment method.")
+    if itype in RETAIL_TYPES and (invoice.get("withholding_category") or invoice.get("stamp_category")):
+        errors.append("Retail receipts can't carry withholding tax or stamp duty.")
+    dn = invoice.get("delivery")
+    if dn:
+        if itype not in {"1.1", "1.2", "1.3"}:
+            errors.append("Only sales invoices (1.x) can double as a delivery note.")
+        if int(dn.get("move_purpose") or 0) not in MOVE_PURPOSES:
+            errors.append("Choose why the goods are moving.")
+        if not _addr_ok(dn.get("loading_address")) or not _addr_ok(dn.get("delivery_address")):
+            errors.append("Delivery note part: loading and delivery addresses need street, postcode and city.")
+        if not dn.get("dispatch_date"):
+            errors.append("Delivery note part: set the dispatch date.")
 
     if itype in CREDIT_TYPES and not re.fullmatch(r"\d{6,20}", str(md.get("correlated_mark") or "")):
         errors.append("A credit note must reference the MARK of the invoice it corrects.")
@@ -235,15 +281,35 @@ def build_invoices_doc(invoice: dict, issuer: dict, md: dict, series: str, aa: s
     _sub(hdr, "currency", "EUR")
     if itype in CREDIT_TYPES:
         _sub(hdr, "correlatedInvoices", str(md["correlated_mark"]))
+    dn = invoice.get("delivery")
+    if dn:  # sales invoice that is also the delivery note (Τιμολόγιο - Δελτίο Αποστολής)
+        _sub(hdr, "dispatchDate", dn["dispatch_date"])
+        if dn.get("dispatch_time"):
+            _sub(hdr, "dispatchTime", (dn["dispatch_time"] + ":00")[:8])
+        if (dn.get("vehicle_number") or "").strip():
+            _sub(hdr, "vehicleNumber", dn["vehicle_number"].strip().upper()[:50])
+        _sub(hdr, "movePurpose", int(dn["move_purpose"]))
+        other = _sub(hdr, "otherDeliveryNoteHeader")
+        _address(other, "loadingAddress", dn["loading_address"])
+        _address(other, "deliveryAddress", dn["delivery_address"])
+        _sub(other, "startShippingBranch", int(dn.get("start_branch") or 0))
+        _sub(other, "completeShippingBranch", int(dn.get("complete_branch") or 0))
+        _sub(hdr, "isDeliveryNote", "true")
 
     total_net = sum((l["net"] for l in lines), Decimal(0))
     total_vat = sum((l["vat"] for l in lines), Decimal(0))
-    gross = total_net + total_vat
+    total_wh = sum((l["withheld"] for l in lines), Decimal(0))
+    total_stamp = sum((l["stamp"] for l in lines), Decimal(0))
+    gross = total_net + total_vat - total_wh + total_stamp
 
     pms = _sub(inv, "paymentMethods")
     pmd = _sub(pms, "paymentMethodDetails")
     _sub(pmd, "type", int(md["payment_method"]))
     _sub(pmd, "amount", _s(gross))
+    if md.get("transaction_id"):  # card terminal (e-POS) payment
+        _sub(pmd, "transactionId", str(md["transaction_id"])[:100])
+        if md.get("terminal_id"):
+            _sub(pmd, "tid", str(md["terminal_id"])[:100])
 
     for l in lines:
         det = _sub(inv, "invoiceDetails")
@@ -253,6 +319,12 @@ def build_invoices_doc(invoice: dict, issuer: dict, md: dict, series: str, aa: s
         _sub(det, "vatAmount", _s(l["vat"]))
         if vat_cat == 7:
             _sub(det, "vatExemptionCategory", int(md["vat_exemption_category"]))
+        if l["withheld_cat"]:
+            _sub(det, "withheldAmount", _s(l["withheld"]))
+            _sub(det, "withheldPercentCategory", l["withheld_cat"])
+        if l["stamp_cat"]:
+            _sub(det, "stampDutyAmount", _s(l["stamp"]))
+            _sub(det, "stampDutyPercentCategory", l["stamp_cat"])
         ic = _sub(det, "incomeClassification")
         _sub(ic, "classificationType", cls_type, NS_ICLS)
         _sub(ic, "classificationCategory", cls_cat, NS_ICLS)
@@ -261,9 +333,11 @@ def build_invoices_doc(invoice: dict, issuer: dict, md: dict, series: str, aa: s
     summ = _sub(inv, "invoiceSummary")
     _sub(summ, "totalNetValue", _s(total_net))
     _sub(summ, "totalVatAmount", _s(total_vat))
-    for tag in ("totalWithheldAmount", "totalFeesAmount", "totalStampDutyAmount",
-                "totalOtherTaxesAmount", "totalDeductionsAmount"):
-        _sub(summ, tag, "0.00")
+    _sub(summ, "totalWithheldAmount", _s(total_wh))
+    _sub(summ, "totalFeesAmount", "0.00")
+    _sub(summ, "totalStampDutyAmount", _s(total_stamp))
+    _sub(summ, "totalOtherTaxesAmount", "0.00")
+    _sub(summ, "totalDeductionsAmount", "0.00")
     _sub(summ, "totalGrossValue", _s(gross))
     ic = _sub(summ, "incomeClassification")
     _sub(ic, "classificationType", cls_type, NS_ICLS)

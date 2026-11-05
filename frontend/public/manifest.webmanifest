@@ -1,0 +1,21 @@
+{
+  "name": "Tameio — invoices & books",
+  "short_name": "Tameio",
+  "description": "Invoices, receipts, myDATA and expenses for Greek small businesses.",
+  "start_url": "/app?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F7F4EE",
+  "theme_color": "#F7F4EE",
+  "lang": "el",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Σάρωση απόδειξης", "short_name": "Σάρωση", "url": "/app/scan?source=pwa", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Γρήγορη απόδειξη", "short_name": "Απόδειξη", "url": "/app/invoices?receipt=1&source=pwa", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Νέο τιμολόγιο", "short_name": "Τιμολόγιο", "url": "/app/invoices?new=1&source=pwa", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

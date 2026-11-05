@@ -33,3 +33,6 @@ async def ensure_indexes():
     await d.documents.create_index("public_token", sparse=True)
     await d.suppliers.create_index("token", unique=True)
     await d.afm_cache.create_index("afm", unique=True)
+    await d.shop_connections.create_index("token", unique=True)
+    await d.shop_orders.create_index([("org_id", 1), ("platform", 1), ("order_id", 1)], unique=True)
+    await d.stock_moves.create_index([("org_id", 1), ("product_id", 1), ("created_at", -1)])

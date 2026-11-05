@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { BellRing, Copy, FilePlus2, FileText, Link2, PackageCheck, Pencil, Printer, ReceiptText, RotateCcw, Search, Send, Trash2, Repeat, Paperclip, Banknote, CreditCard } from "lucide-react";
+import { BellRing, Copy, FilePlus2, FileText, Link2, PackageCheck, Pencil, Printer, ReceiptText, RotateCcw, Search, Send, Trash2, Repeat, Paperclip, Banknote, CreditCard, Smartphone, Wallet, Sparkles, ScrollText } from "lucide-react";
 import { RowMenu } from "@/components/Extras";
 import { useProducts } from "@/components/ItemsEditor";
 import { api, openFile } from "@/lib/api";
-import { date, lineTotals, money, todayISO } from "@/lib/format";
+import { WITHHOLDING, STAMP_DUTY, date, docTotals, lineTotals, money, todayISO } from "@/lib/format";
 import { printDocument } from "@/lib/print";
 import { Badge, Button, Empty, Field, IconBtn, Input, Modal, PageHeader, PageLoader, Segmented, Select, Sheet, Table, Textarea } from "@/components/ui";
 import { ClientPicker, EMPTY_ITEM, ItemsEditor } from "@/components/ItemsEditor";
@@ -19,10 +19,93 @@ const FILTERS = [["all", "All"], ["unpaid", "Unpaid"], ["overdue", "Overdue"], [
 
 export function blankInvoice(biz) {
   return { client_id: null, client_name: "", client_email: "", client_afm: "", items: [{ ...EMPTY_ITEM }], tax_rate: biz?.default_tax_rate ?? 24,
-    notes: "", status: "draft", issue_date: todayISO(), due_date: "", currency: "EUR", recurring: "none" };
+    notes: "", status: "draft", issue_date: todayISO(), due_date: "", currency: "EUR", recurring: "none",
+    withholding_category: 0, stamp_category: 0, iban: "", language: "", delivery: null };
 }
 
-export function InvoiceEditor({ value, onClose, onSaved, clients, title }) {
+const ADDR = { street: "", number: "", postal_code: "", city: "" };
+const PURPOSES = [[1, "Sale"], [2, "Sale on behalf of third parties"], [3, "Sampling"], [4, "Exhibition"], [7, "Processing / assembly"], [12, "Warranty"], [13, "Loan"], [19, "Other"]];
+
+function Addr({ label, value, onChange }) {
+  const set = (k) => (e) => onChange({ ...value, [k]: e.target.value });
+  return (
+    <fieldset className="space-y-2">
+      <legend className="label">{label}</legend>
+      <div className="grid grid-cols-[1fr_72px] gap-2"><Input placeholder={tr("Street")} value={value.street} onChange={set("street")} /><Input placeholder={tr("No.")} value={value.number} onChange={set("number")} /></div>
+      <div className="grid grid-cols-[96px_1fr] gap-2"><Input placeholder={tr("Postcode")} value={value.postal_code} onChange={set("postal_code")} /><Input placeholder={tr("City")} value={value.city} onChange={set("city")} /></div>
+    </fieldset>
+  );
+}
+
+/** Less-used invoice options, folded away so the editor stays simple. */
+function MoreOptions({ f, setF, biz, clients }) {
+  const [open, setOpen] = useState(!!(f.withholding_category || f.stamp_category || f.delivery || f.iban || f.language));
+  const client = clients.find((c) => c.id === f.client_id);
+  const toggleDN = (on) => setF({ ...f, delivery: on ? {
+    enabled: true, move_purpose: 1, dispatch_date: f.issue_date || todayISO(), dispatch_time: new Date().toTimeString().slice(0, 5), vehicle_number: "",
+    loading_address: { ...ADDR, street: biz?.address || "", postal_code: biz?.postal_code || "", city: biz?.city || "" },
+    delivery_address: { ...ADDR, street: client?.address || f.client_address || "", postal_code: client?.postal_code || f.client_postal_code || "", city: client?.city || f.client_city || "" },
+  } : null });
+  const dn = f.delivery;
+  return (
+    <div className="rounded-xl border border-line">
+      <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-4 h-11 text-sm font-semibold" data-testid="invoice-more">
+        {tr("Withholding, stamp duty, delivery note & more")}<span className="text-muted text-xs">{open ? tr("Hide") : tr("Show")}</span>
+      </button>
+      {open && (
+        <div className="px-4 pb-4 space-y-4 border-t border-line pt-4">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field label={tr("Withholding tax")} hint={tr("e.g. 20% when a freelancer bills a business")}>
+              <Select value={f.withholding_category || 0} onChange={(e) => setF({ ...f, withholding_category: Number(e.target.value) })} data-testid="withholding">
+                <option value={0}>{tr("None")}</option>
+                {Object.entries(WITHHOLDING).map(([k, [l, p]]) => <option key={k} value={k}>{p}% · {tr(l)}</option>)}
+              </Select>
+            </Field>
+            <Field label={tr("Stamp duty")}>
+              <Select value={f.stamp_category || 0} onChange={(e) => setF({ ...f, stamp_category: Number(e.target.value) })}>
+                <option value={0}>{tr("None")}</option>
+                {Object.entries(STAMP_DUTY).map(([k, p]) => <option key={k} value={k}>{String(p).replace(".", ",")}%</option>)}
+              </Select>
+            </Field>
+            {(biz?.bank_accounts || []).length > 0 && (
+              <Field label={tr("Bank account on the invoice")}>
+                <Select value={f.iban || ""} onChange={(e) => setF({ ...f, iban: e.target.value })}>
+                  <option value="">{biz.iban ? `${tr("Default")} · ${biz.iban}` : tr("Default")}</option>
+                  {biz.bank_accounts.map((a) => <option key={a.iban} value={a.iban}>{a.label || a.iban} · …{a.iban.slice(-4)}</option>)}
+                </Select>
+              </Field>
+            )}
+            <Field label={tr("Document language")}>
+              <Select value={f.language || ""} onChange={(e) => setF({ ...f, language: e.target.value })}>
+                <option value="">{tr("Client's language")}</option><option value="el">Ελληνικά</option><option value="en">English</option>
+              </Select>
+            </Field>
+          </div>
+          <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+            <input type="checkbox" className="h-4 w-4 accent-[hsl(var(--brand))]" checked={!!dn} onChange={(e) => toggleDN(e.target.checked)} data-testid="invoice-dn-toggle" />
+            {tr("This invoice is also the delivery note (Τιμολόγιο - Δελτίο Αποστολής)")}
+          </label>
+          {dn && (
+            <div className="space-y-3 rounded-xl bg-surface-2/60 p-3">
+              <div className="grid sm:grid-cols-4 gap-2">
+                <Field label={tr("Purpose")} className="sm:col-span-2"><Select value={dn.move_purpose} onChange={(e) => setF({ ...f, delivery: { ...dn, move_purpose: Number(e.target.value) } })}>{PURPOSES.map(([k, l]) => <option key={k} value={k}>{tr(l)}</option>)}</Select></Field>
+                <Field label={tr("Dispatch date")}><Input type="date" value={dn.dispatch_date} onChange={(e) => setF({ ...f, delivery: { ...dn, dispatch_date: e.target.value } })} /></Field>
+                <Field label={tr("Vehicle plate")}><Input value={dn.vehicle_number} onChange={(e) => setF({ ...f, delivery: { ...dn, vehicle_number: e.target.value.toUpperCase() } })} /></Field>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <Addr label={tr("Loading from")} value={dn.loading_address} onChange={(v) => setF({ ...f, delivery: { ...dn, loading_address: v } })} />
+                <Addr label={tr("Delivering to")} value={dn.delivery_address} onChange={(v) => setF({ ...f, delivery: { ...dn, delivery_address: v } })} />
+              </div>
+              <p className="text-[11px] text-muted">{tr("Report it to myDATA as a sales invoice (1.1).")}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function InvoiceEditor({ value, onClose, onSaved, clients, title, biz, hints }) {
   const [f, setF] = useState(value);
   const [busy, setBusy] = useState(false);
   useEffect(() => setF(value), [value]);
@@ -30,7 +113,7 @@ export function InvoiceEditor({ value, onClose, onSaved, clients, title }) {
   const save = async (status) => {
     setBusy(true);
     const body = { ...f, status: status || f.status, due_date: f.due_date || null,
-      items: f.items.filter((i) => i.description.trim()).map((i) => ({ description: i.description, qty: parseFloat(i.qty) || 0, unit_price: parseFloat(i.unit_price) || 0 })) };
+      items: f.items.filter((i) => i.description.trim()).map((i) => ({ description: i.description, qty: parseFloat(i.qty) || 0, unit_price: parseFloat(i.unit_price) || 0, ...(i.product_id ? { product_id: i.product_id } : {}) })) };
     try {
       const saved = f.id ? await api.put(`/invoices/${f.id}`, body) : await api.post("/invoices", body);
       toast.success(f.id ? "Invoice updated" : `${saved.number} created`);
@@ -38,7 +121,8 @@ export function InvoiceEditor({ value, onClose, onSaved, clients, title }) {
     } catch (e) { toast.error(e.message); }
     setBusy(false);
   };
-  const t = lineTotals(f.items, f.tax_rate);
+  const t = docTotals(f.items, f.tax_rate, f.withholding_category, f.stamp_category);
+  t.total = t.payable;
   return (
     <Sheet open={!!f} onClose={onClose} title={title || (f.id ? `Edit ${f.number}` : "New invoice")} width="max-w-3xl"
       footer={<>
@@ -47,6 +131,10 @@ export function InvoiceEditor({ value, onClose, onSaved, clients, title }) {
         <Button onClick={() => save(f.id ? undefined : "sent")} loading={busy} disabled={t.total <= 0} data-testid="invoice-save">{f.id ? "Save changes" : "Create invoice"}</Button>
       </>}>
       <div className="space-y-6" data-testid="invoice-editor">
+        {hints?.length > 0 && (
+          <div className="rounded-xl bg-brand-soft text-sm px-4 py-3" data-testid="draft-hints"><p className="font-semibold text-brand">{tr("Drafted by AI — please check")}</p>
+            <ul className="list-disc pl-5 mt-1 text-ink/80">{hints.map((h) => <li key={h}>{h}</li>)}</ul></div>
+        )}
         <ClientPicker clients={clients} value={f} onChange={setF} />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Field label={tr("Issue date")}><Input type="date" value={f.issue_date || ""} onChange={(e) => setF({ ...f, issue_date: e.target.value })} /></Field>
@@ -55,6 +143,14 @@ export function InvoiceEditor({ value, onClose, onSaved, clients, title }) {
           <Field label={tr("Repeat")}><Select value={f.recurring} onChange={(e) => setF({ ...f, recurring: e.target.value })}><option value="none">{tr("Never")}</option><option value="monthly">{tr("Monthly")}</option></Select></Field>
         </div>
         <ItemsEditor items={f.items} onChange={(items) => setF({ ...f, items })} taxRate={f.tax_rate} onTaxRate={(tax_rate) => setF({ ...f, tax_rate })} currency={f.currency} />
+        {(t.withheld > 0 || t.stamp > 0) && (
+          <dl className="text-sm ml-auto max-w-[260px] space-y-1 -mt-3" data-testid="extra-totals">
+            {t.withheld > 0 && <div className="flex justify-between text-muted"><dt>{tr("Withholding tax")}</dt><dd className="num">−{money(t.withheld, f.currency)}</dd></div>}
+            {t.stamp > 0 && <div className="flex justify-between text-muted"><dt>{tr("Stamp duty")}</dt><dd className="num">{money(t.stamp, f.currency)}</dd></div>}
+            <div className="flex justify-between font-bold pt-1 border-t border-line"><dt>{tr("Client pays")}</dt><dd className="num">{money(t.payable, f.currency)}</dd></div>
+          </dl>
+        )}
+        <MoreOptions f={f} setF={setF} biz={biz} clients={clients} />
         <Field label={tr("Notes (printed on the invoice)")}><Textarea value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder={tr("e.g. Thank you for your business")} /></Field>
       </div>
     </Sheet>
@@ -104,8 +200,57 @@ function CreditNoteDialog({ invoice, onClose, onCreated }) {
   );
 }
 
+const METHODS = [["bank_transfer", "Bank transfer"], ["cash", "Cash"], ["card", "Card"], ["cheque", "Cheque"], ["other", "Other"]];
+
+/** Record part payments ("paid €300 of €800") and see what's left. */
+function PaymentsDialog({ invoice, onClose, onChanged }) {
+  const [inv, setInv] = useState(invoice);
+  const [f, setF] = useState({ amount: "", date: todayISO(), method: "bank_transfer", note: "" });
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setInv(invoice); if (invoice) setF({ amount: String(invoice.balance ?? invoice.total), date: todayISO(), method: "bank_transfer", note: "" }); }, [invoice]);
+  if (!inv) return null;
+  const owed = Math.round(((inv.total || 0) - (inv.paid_amount || 0)) * 100) / 100;
+  const add = async () => {
+    setBusy(true);
+    try {
+      const r = await api.post(`/invoices/${inv.id}/payments`, { ...f, amount: parseFloat(f.amount) || 0 });
+      setInv(r); onChanged(r); toast.success(r.status === "paid" ? tr("Paid in full") : tr("Payment recorded"));
+      setF({ ...f, amount: String(r.balance || ""), note: "" });
+    } catch (e) { toast.error(e.message); }
+    setBusy(false);
+  };
+  const remove = async (p) => { try { const r = await api.del(`/invoices/${inv.id}/payments/${p.id}`); setInv(r); onChanged(r); } catch (e) { toast.error(e.message); } };
+  return (
+    <Modal open onClose={onClose} title={tr("Payments for {n}", { n: inv.number })} description={tr("{paid} received of {total}", { paid: money(inv.paid_amount || 0, inv.currency), total: money(inv.total, inv.currency) })}>
+      <div className="space-y-4" data-testid="payments-dialog">
+        <div className="h-2 rounded-full bg-surface-2 overflow-hidden"><div className="h-full bg-success" style={{ width: `${Math.min(100, ((inv.paid_amount || 0) / (inv.total || 1)) * 100)}%` }} /></div>
+        {(inv.payments || []).length > 0 && (
+          <ul className="divide-y divide-line rounded-xl border border-line text-sm">
+            {inv.payments.map((p) => (
+              <li key={p.id} className="flex items-center gap-3 px-3 py-2">
+                <span className="text-muted w-24">{date(p.date)}</span><span className="flex-1">{tr((METHODS.find((m) => m[0] === p.method) || [, p.method])[1])}{p.note ? ` · ${p.note}` : ""}</span>
+                <span className="num font-semibold">{money(p.amount, inv.currency)}</span>
+                <IconBtn icon={Trash2} label={tr("Remove")} tone="danger" onClick={() => remove(p)} />
+              </li>
+            ))}
+          </ul>
+        )}
+        {owed > 0 ? (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={tr("Amount")}><Input type="number" step="0.01" min="0" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} data-testid="payment-amount" /></Field>
+            <Field label={tr("Date")}><Input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
+            <Field label={tr("How")}><Select value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })}>{METHODS.map(([k, l]) => <option key={k} value={k}>{tr(l)}</option>)}</Select></Field>
+            <Field label={tr("Note")}><Input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
+            <Button className="col-span-2" onClick={add} loading={busy} data-testid="payment-add">{tr("Record payment")} · {tr("{n} still owed", { n: money(owed, inv.currency) })}</Button>
+          </div>
+        ) : <p className="text-sm text-success font-semibold text-center">{tr("Paid in full")}</p>}
+      </div>
+    </Modal>
+  );
+}
+
 /** Counter sale: a few taps, paid on the spot, reported to myDATA as ΑΛΠ (goods) or ΑΠΥ (services). */
-function QuickReceipt({ open, onClose, onDone, biz }) {
+function QuickReceipt({ open, onClose, onDone, biz, preset }) {
   const products = useProducts();
   const [items, setItems] = useState([{ ...EMPTY_ITEM }]);
   const [rate, setRate] = useState(24);
@@ -113,11 +258,32 @@ function QuickReceipt({ open, onClose, onDone, biz }) {
   const [payment, setPayment] = useState("card");
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (open) { setItems([{ ...EMPTY_ITEM }]); setRate(biz?.default_tax_rate ?? 24); setEmail(""); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [pos, setPos] = useState(null);
+  const [waiting, setWaiting] = useState(null);
+  useEffect(() => {
+    if (!open) return;
+    setItems(preset?.items?.length ? preset.items : [{ ...EMPTY_ITEM }]); setRate(preset?.tax_rate ?? biz?.default_tax_rate ?? 24); setEmail(""); setWaiting(null);
+    api.get("/pos/settings").then(setPos).catch(() => setPos(null));
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Card terminal: poll until the customer has tapped their card.
+  useEffect(() => {
+    if (!waiting) return undefined;
+    let stop = false;
+    const tick = async () => {
+      try {
+        const r = await api.get(`/receipts/${waiting.id}/terminal`);
+        if (r.status === "approved") { toast.success(r.mydata ? tr("{n} issued · ΜΑΡΚ {m}", { n: waiting.number, m: r.mydata }) : tr("{n} issued", { n: waiting.number })); onDone(waiting); return; }
+        if (r.status === "declined") { toast.error(tr("Card declined — try again or take cash")); setWaiting(null); return; }
+      } catch { /* keep polling */ }
+      if (!stop) setTimeout(tick, 2000);
+    };
+    const id = setTimeout(tick, 1500);
+    return () => { stop = true; clearTimeout(id); };
+  }, [waiting]); // eslint-disable-line react-hooks/exhaustive-deps
   const t = lineTotals(items, rate);
   const add = (p) => {
     const blank = items.findIndex((i) => !i.description.trim());
-    const line = { description: p.name, qty: 1, unit_price: p.unit_price };
+    const line = { description: p.name, qty: 1, unit_price: p.unit_price, product_id: p.id };
     setItems(blank >= 0 ? items.map((x, j) => (j === blank ? line : x)) : [...items, line]);
     if (items.every((i) => !i.description.trim())) setRate(p.tax_rate);
     api.post(`/products/${p.id}/used`).catch(() => {});
@@ -125,8 +291,12 @@ function QuickReceipt({ open, onClose, onDone, biz }) {
   const issue = async () => {
     setBusy(true);
     try {
-      const r = await api.post("/receipts", { items: items.filter((i) => i.description.trim()).map((i) => ({ description: i.description, qty: parseFloat(i.qty) || 0, unit_price: parseFloat(i.unit_price) || 0 })),
+      const r = await api.post("/receipts", { items: items.filter((i) => i.description.trim()).map((i) => ({ description: i.description, qty: parseFloat(i.qty) || 0, unit_price: parseFloat(i.unit_price) || 0, ...(i.product_id ? { product_id: i.product_id } : {}) })),
         tax_rate: rate, kind, payment, customer_email: email });
+      if (r.awaiting_terminal) {
+        await api.post(`/receipts/${r.receipt.id}/terminal`);
+        setWaiting(r.receipt); setBusy(false); return;
+      }
       if (r.mydata) toast.success(tr("{n} issued · ΜΑΡΚ {m}", { n: r.receipt.number, m: r.mydata }));
       else toast.message(tr("{n} issued", { n: r.receipt.number }), { description: r.mydata_error ? tr(r.mydata_error) : undefined });
       onDone(r.receipt);
@@ -135,7 +305,15 @@ function QuickReceipt({ open, onClose, onDone, biz }) {
   };
   return (
     <Modal open={open} onClose={onClose} wide title={tr("Quick receipt")} description={tr("For walk-in customers. It's marked paid and reported to myDATA straight away.")}
-      footer={<><Button variant="secondary" onClick={onClose}>{tr("Cancel")}</Button><Button onClick={issue} loading={busy} disabled={t.total <= 0} data-testid="receipt-issue">{tr("Issue receipt")} · {money(t.total)}</Button></>}>
+      footer={waiting ? null : <><Button variant="secondary" onClick={onClose}>{tr("Cancel")}</Button><Button onClick={issue} loading={busy} disabled={t.total <= 0} data-testid="receipt-issue">{tr("Issue receipt")} · {money(t.total)}</Button></>}>
+      {waiting ? (
+        <div className="py-10 text-center" data-testid="terminal-waiting">
+          <div className="mx-auto h-14 w-14 rounded-2xl bg-brand-soft text-brand flex items-center justify-center"><Smartphone className="h-7 w-7 animate-pulse" /></div>
+          <p className="font-serif text-2xl mt-4">{tr("Tap or insert the card on the terminal")}</p>
+          <p className="text-sm text-muted mt-1">{money(waiting.total)} · {waiting.number}</p>
+          <Button variant="secondary" className="mt-6" onClick={async () => { await api.post(`/receipts/${waiting.id}/terminal/cancel`).catch(() => {}); setWaiting(null); }}>{tr("Cancel payment")}</Button>
+        </div>
+      ) : (
       <div className="space-y-5" data-testid="quick-receipt">
         {products.length > 0 && (
           <div className="flex flex-wrap gap-2">
@@ -148,13 +326,14 @@ function QuickReceipt({ open, onClose, onDone, biz }) {
         <div className="grid sm:grid-cols-3 gap-3">
           <Field label={tr("What was sold")}><Segmented value={kind} onChange={setKind} options={[["goods", "Goods"], ["services", "Services"]]} /></Field>
           <Field label={tr("Paid with")}>
-            <div className="flex gap-2">{[["card", "Card", CreditCard], ["cash", "Cash", Banknote]].map(([k, l, I]) => (
+            <div className="flex gap-2">{[...(pos?.terminal_id || pos?.simulate ? [["terminal", "Terminal", Smartphone]] : []), ["card", "Card", CreditCard], ["cash", "Cash", Banknote]].map(([k, l, I]) => (
               <button key={k} onClick={() => setPayment(k)} className={`flex-1 h-10 rounded-xl border text-sm font-semibold inline-flex items-center justify-center gap-1.5 ${payment === k ? "border-brand bg-brand-soft text-brand" : "border-line"}`}><I className="h-4 w-4" />{tr(l)}</button>
             ))}</div>
           </Field>
           <Field label={tr("Email a copy (optional)")}><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.gr" /></Field>
         </div>
       </div>
+      )}
     </Modal>
   );
 }
@@ -170,6 +349,9 @@ export default function Invoices() {
   const [mydataInv, setMydataInv] = useState(null);
   const [creditFor, setCreditFor] = useState(null);
   const [receipt, setReceipt] = useState(false);
+  const [paying, setPaying] = useState(null);
+  const [hints, setHints] = useState(null);
+  const [preset, setPreset] = useState(null);
   const go = useNavigate();
 
   const load = useCallback(async () => {
@@ -181,6 +363,14 @@ export default function Invoices() {
   useEffect(() => {
     if (!list) return;
     if (params.get("new")) { setEditing(blankInvoice(biz)); params.delete("new"); setParams(params, { replace: true }); }
+    const draft = params.get("draft") ? JSON.parse(sessionStorage.getItem("tameio_draft") || "null") : null;
+    if (draft) {
+      sessionStorage.removeItem("tameio_draft");
+      const due = draft.due_in_days ? new Date(Date.now() + draft.due_in_days * 864e5).toISOString().slice(0, 10) : "";
+      if (draft.doc_kind === "receipt") { setPreset({ items: draft.items, tax_rate: draft.tax_rate }); setReceipt(true); }
+      else { setEditing({ ...blankInvoice(biz), client_id: draft.client_id, client_name: draft.client_name, client_afm: draft.client_afm, items: draft.items, tax_rate: draft.tax_rate, due_date: due, notes: draft.notes }); setHints(draft.questions); }
+      params.delete("draft"); setParams(params, { replace: true });
+    }
     if (params.get("receipt")) { setReceipt(true); params.delete("receipt"); setParams(params, { replace: true }); }
     if (params.get("q")) { setQ(params.get("q")); params.delete("q"); setParams(params, { replace: true }); }
   }, [params, list]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -236,13 +426,14 @@ export default function Invoices() {
   if (!list) return <PageLoader />; return (<div className="animate-in">
       <PageHeader title={tr("Invoices & receipts")} subtitle={tr("Bill clients, ring up counter sales, get paid — all reported to myDATA.")}
         actions={<>
-          <Button variant="secondary" onClick={() => setReceipt(true)} data-testid="new-receipt"><ReceiptText className="h-4 w-4" />{tr("Quick receipt")}</Button>
+          <Button variant="secondary" onClick={() => window.dispatchEvent(new Event("tameio:ai-draft"))} data-testid="ai-draft-open"><Sparkles className="h-4 w-4" />{tr("Write with AI")}</Button>
+          <Button variant="secondary" onClick={() => { setPreset(null); setReceipt(true); }} data-testid="new-receipt"><ReceiptText className="h-4 w-4" />{tr("Quick receipt")}</Button>
           <Button onClick={() => setEditing(blankInvoice(biz))} data-testid="new-invoice"><FilePlus2 className="h-4 w-4" />{tr("New invoice")}</Button>
         </>} />
 
       <div className="grid grid-cols-3 gap-3 mb-5">
         {[["Unpaid", totals.unpaid, ""], ["Overdue", totals.overdue, "text-danger"], ["Paid", totals.paid, "text-success"]].map(([l, v, c]) => (
-          <div key={l} className="card px-4 py-3"><p className="text-xs text-muted">{l}</p><p className={`num font-bold text-lg ${c}`}>{money(v)}</p></div>
+          <div key={l} className="card px-4 py-3"><p className="text-xs text-muted">{tr(l)}</p><p className={`num font-bold text-lg ${c}`}>{money(v)}</p></div>
         ))}
       </div>
 
@@ -264,7 +455,7 @@ export default function Invoices() {
                 {i.recurring === "monthly" && <Repeat className="inline h-3 w-3 ml-1 text-violet" />}
                 {i.file && <Paperclip className="inline h-3 w-3 ml-1 text-muted" />}
               </td>
-              <td className="td"><p className="font-medium">{i.client_name}</p><p className="text-[11px] text-muted">{date(i.issue_date)}{i.paid_via && ` · paid by ${i.paid_via === "viva" ? "card" : "bank"}`}{i.reminders?.length ? ` · ${i.reminders.length} reminder(s)` : ""}</p></td>
+              <td className="td"><p className="font-medium">{i.client_name === "Retail customer" ? tr("Retail customer") : i.client_name}</p><p className="text-[11px] text-muted">{date(i.issue_date)}{i.paid_amount > 0 && i.status !== "paid" ? <span className="text-success font-semibold">{` · ${tr("{a} of {b} paid", { a: money(i.paid_amount), b: money(i.total) })}`}</span> : ""}{i.withheld ? ` · ${tr("withholding")} ${money(i.withheld)}` : ""}{i.delivery ? ` · ${tr("+ delivery note")}` : ""}{i.source?.platform ? ` · ${i.source.platform} ${i.source.order_number}` : ""}{i.paid_via && ` · paid by ${i.paid_via === "viva" ? "card" : "bank"}`}{i.reminders?.length ? ` · ${i.reminders.length} reminder(s)` : ""}</p></td>
               <td className={`td text-right num font-semibold ${i.kind === "credit_note" ? "text-violet" : ""}`}>{i.kind === "credit_note" ? "−" : ""}{money(i.total, i.currency)}</td>
               <td className="td">
                 {i.kind === "credit_note" ? <Badge tone="violet">{tr("Credit note")}</Badge> : i.kind === "receipt" ? <Badge tone="success">{tr(i.payment === "cash" ? "Paid · cash" : "Paid · card")}</Badge> : (
@@ -282,6 +473,8 @@ export default function Invoices() {
                   <IconBtn icon={Printer} label={tr("Print / PDF")} onClick={() => print(i)} />
                   {!locked(i) && !["credit_note", "receipt"].includes(i.kind) && <IconBtn icon={Pencil} label={tr("Edit")} onClick={() => setEditing({ ...i, due_date: i.due_date || "" })} />}
                   <RowMenu items={[
+                    i.kind === "invoice" && i.status !== "draft" && { label: tr("Record payment"), icon: Wallet, onClick: () => setPaying(i), testid: `pay-${i.id}` },
+                    i.client_id && { label: tr("Client statement"), icon: ScrollText, onClick: () => go(`/app/clients?statement=${i.client_id}`) },
                     ["sent", "overdue"].includes(i.status) && i.client_email && { label: tr("Send payment reminder"), icon: BellRing, onClick: () => remind(i) },
                     i.status !== "draft" && { label: tr("Copy client link"), icon: Link2, onClick: () => share(i) },
                     i.kind !== "credit_note" && { label: tr("Duplicate"), icon: Copy, onClick: () => duplicate(i), testid: `dup-${i.id}` },
@@ -298,9 +491,10 @@ export default function Invoices() {
         </Table>
       )}
 
-      <InvoiceEditor value={editing} clients={clients} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />
+      <InvoiceEditor value={editing} clients={clients} biz={biz} hints={hints} onClose={() => { setEditing(null); setHints(null); }} onSaved={() => { setEditing(null); setHints(null); load(); }} />
+      <PaymentsDialog invoice={paying} onClose={() => setPaying(null)} onChanged={() => load()} />
       <MyDataDialog invoice={mydataInv} onClose={() => setMydataInv(null)} onChanged={async (u) => { const l = await load(); if (u) setMydataInv(l.find((x) => x.id === u.id) || u); }} />
-      <QuickReceipt open={receipt} biz={biz} onClose={() => setReceipt(false)} onDone={() => { setReceipt(false); setFilter("receipts"); load(); }} />
+      <QuickReceipt open={receipt} biz={biz} preset={preset} onClose={() => setReceipt(false)} onDone={() => { setReceipt(false); setFilter("receipts"); load(); }} />
       <CreditNoteDialog invoice={creditFor} onClose={() => setCreditFor(null)} onCreated={async (cn) => { setCreditFor(null); const l = await load(); setMydataInv(l.find((x) => x.id === cn.id)); }} />
     </div>
   );

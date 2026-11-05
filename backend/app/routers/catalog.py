@@ -30,6 +30,8 @@ class ProductInput(BaseModel):
     tax_rate: Optional[float] = 24
     unit: Optional[str] = "pcs"
     kind: Optional[str] = "service"
+    track_stock: Optional[bool] = False
+    low_stock: Optional[float] = 0
 
 
 def _clean_product(p: ProductInput) -> dict:
@@ -41,7 +43,8 @@ def _clean_product(p: ProductInput) -> dict:
     rate = p.tax_rate if p.tax_rate in gt.VAT_CATEGORIES else 24
     return {"name": name[:200], "code": (p.code or "").strip()[:50], "description": (p.description or "").strip()[:500],
             "unit_price": round(p.unit_price, 4), "tax_rate": rate, "unit": p.unit if p.unit in UNITS else "pcs",
-            "kind": "goods" if p.kind == "goods" else "service"}
+            "kind": "goods" if p.kind == "goods" else "service",
+            "track_stock": bool(p.track_stock) and p.kind == "goods", "low_stock": max(0.0, float(p.low_stock or 0))}
 
 
 @router.get("/products")
@@ -51,7 +54,7 @@ async def list_products(ctx: Ctx = Depends(get_ctx)):
 
 @router.post("/products")
 async def create_product(data: ProductInput, ctx: Ctx = Depends(get_ctx)):
-    doc = {"id": str(uuid.uuid4()), "org_id": ctx.org_id, **_clean_product(data), "uses": 0, "created_at": now(), "updated_at": now()}
+    doc = {"id": str(uuid.uuid4()), "org_id": ctx.org_id, **_clean_product(data), "uses": 0, "stock": 0.0, "created_at": now(), "updated_at": now()}
     await get_db().products.insert_one({**doc})
     return doc
 
@@ -77,6 +80,56 @@ async def product_used(product_id: str, ctx: Ctx = Depends(get_ctx)):
     """Most-used items float to the top of the picker."""
     await get_db().products.update_one({"id": product_id, "org_id": ctx.org_id}, {"$inc": {"uses": 1}})
     return {"ok": True}
+
+
+# ------------------------------------------------------------------ stock
+
+class StockInput(BaseModel):
+    qty: float
+    note: Optional[str] = ""
+
+
+async def _move(org_id: str, product: dict, qty: float, reason: str, ref: str = "", ref_id: str = "", user_id: str = ""):
+    d = get_db()
+    await d.products.update_one({"id": product["id"]}, {"$inc": {"stock": qty}})
+    await d.stock_moves.insert_one({"id": str(uuid.uuid4()), "org_id": org_id, "product_id": product["id"], "qty": qty, "reason": reason,
+                                    "ref": ref, "ref_id": ref_id, "user_id": user_id, "created_at": now()})
+    after = (product.get("stock") or 0) + qty
+    low = product.get("low_stock") or 0
+    if qty < 0 and low > 0 and after <= low < (product.get("stock") or 0):
+        from app.notify import notify
+        await notify(org_id, "stock", f"Low stock: {product['name']} ({after:g} left)", "/app/products")
+
+
+async def apply_stock(org_id: str, doc: dict, sign: int, reason: str):
+    """Move stock for every line that came from a tracked product. sign -1 = goods out (sale), +1 = goods back."""
+    ids = [i["product_id"] for i in doc.get("items") or [] if i.get("product_id")]
+    if not ids:
+        return
+    prods = {p["id"]: p for p in await get_db().products.find({"org_id": org_id, "id": {"$in": ids}, "track_stock": True}, {"_id": 0}).to_list(500)}
+    for i in doc["items"]:
+        p = prods.get(i.get("product_id"))
+        if p:
+            await _move(org_id, p, sign * float(i.get("qty") or 0), reason, doc.get("number", ""), doc.get("id", ""))
+            p["stock"] = (p.get("stock") or 0) + sign * float(i.get("qty") or 0)
+
+
+@router.post("/products/{product_id}/stock")
+async def adjust_stock(product_id: str, data: StockInput, ctx: Ctx = Depends(get_ctx)):
+    p = await get_db().products.find_one({"id": product_id, "org_id": ctx.org_id}, {"_id": 0})
+    if not p:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if not p.get("track_stock"):
+        raise HTTPException(status_code=400, detail="Turn on stock tracking for this product first")
+    if not data.qty:
+        raise HTTPException(status_code=400, detail="Enter a quantity (negative to remove)")
+    await _move(ctx.org_id, p, round(data.qty, 3), "adjustment", (data.note or "").strip()[:120], user_id=ctx.user_id)
+    return await get_db().products.find_one({"id": product_id}, {"_id": 0})
+
+
+@router.get("/products/{product_id}/moves")
+async def stock_moves(product_id: str, ctx: Ctx = Depends(get_ctx)):
+    return await get_db().stock_moves.find({"org_id": ctx.org_id, "product_id": product_id}, {"_id": 0}).sort("created_at", -1).to_list(200)
 
 
 # ------------------------------------------------------------------ import

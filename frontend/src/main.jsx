@@ -22,3 +22,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     </BrowserRouter>
   </React.StrictMode>,
 );
+
+// Installable app (PWA). Only in production builds so development always loads fresh code.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
+}
+// Keep the browser's install offer so we can show our own "Install app" button.
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); window.__tameioInstall = e; window.dispatchEvent(new Event("tameio:installable")); });

@@ -99,6 +99,13 @@ export default function Documents({ type }) {
     tax_rate: biz.default_tax_rate ?? 24, notes: "", status: "draft", issue_date: todayISO(), valid_until: "", currency: "EUR" });
   useEffect(() => {
     if (params.get("new") && list) { setEditing(blank()); params.delete("new"); setParams(params, { replace: true }); }
+    const draft = params.get("draft") && list ? JSON.parse(sessionStorage.getItem("tameio_draft") || "null") : null;
+    if (draft) {
+      sessionStorage.removeItem("tameio_draft");
+      setEditing({ ...blank(), client_id: draft.client_id, client_name: draft.client_name, items: draft.items, tax_rate: draft.tax_rate, notes: draft.notes });
+      if (draft.questions?.length) toast.message(tr("Drafted by AI — please check"), { description: draft.questions.join(" · ") });
+      params.delete("draft"); setParams(params, { replace: true });
+    }
   }, [params, list]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const shown = useMemo(() => (list || []).filter((d) => !q || `${d.number} ${d.client_name || d.supplier_name}`.toLowerCase().includes(q.toLowerCase())), [list, q]);

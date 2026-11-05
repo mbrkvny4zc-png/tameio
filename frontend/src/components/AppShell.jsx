@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import {
   LayoutDashboard, FileText, FileSignature, ClipboardList, Users, Receipt, ShoppingCart, Truck, BarChart3, Settings, ScanLine, Bell, LogOut,
   Menu, X, ShieldCheck, Inbox, Landmark, CalendarClock, Calculator, ChevronsUpDown, Check, Building2, ArrowLeft, Sparkles,
-  ChevronDown, MessageSquareText, Package, PackageCheck, Search,
+  ChevronDown, MessageSquareText, Package, PackageCheck, Search, Smartphone,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -13,6 +13,7 @@ import { useOrg } from "@/lib/org";
 import { Logo } from "@/components/Logo";
 import { Button, Modal, cx } from "@/components/ui";
 import { CommandPalette, NewMenu } from "@/components/CommandPalette";
+import { AiDraft } from "@/components/AiDraft";
 
 function buildNav(t, { kind, isAccountant }) {
   if (kind === "practice") {
@@ -49,6 +50,32 @@ function buildNav(t, { kind, isAccountant }) {
       { to: "/app/calendar", label: t("Tax calendar"), icon: CalendarClock },
     ] },
   ];
+}
+
+/** "Install app" — Android/desktop get the native prompt; iPhone gets the two-step hint. */
+function InstallApp() {
+  const { t } = useT();
+  const [can, setCan] = useState(!!window.__tameioInstall);
+  const [ios, setIos] = useState(false);
+  const standalone = window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone;
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  useEffect(() => { const h = () => setCan(true); window.addEventListener("tameio:installable", h); return () => window.removeEventListener("tameio:installable", h); }, []);
+  if (standalone || (!can && !isIos)) return null;
+  const install = async () => {
+    if (window.__tameioInstall) { window.__tameioInstall.prompt(); await window.__tameioInstall.userChoice.catch(() => {}); window.__tameioInstall = null; setCan(false); }
+    else setIos(true);
+  };
+  return (
+    <>
+      <button onClick={install} className="flex items-center gap-3 px-3 h-9 w-full rounded-lg text-sm font-medium text-muted hover:text-ink hover:bg-surface-2" data-testid="install-app">
+        <Smartphone className="h-[18px] w-[18px]" strokeWidth={1.9} />{t("Install the app")}
+      </button>
+      <Modal open={ios} onClose={() => setIos(false)} title={t("Add Tameio to your Home Screen")}>
+        <ol className="list-decimal pl-5 space-y-2 text-sm"><li>{t("Tap the Share button in Safari.")}</li><li>{t("Choose “Add to Home Screen”.")}</li></ol>
+        <p className="text-xs text-muted mt-3">{t("It opens full-screen like an app, with shortcuts to scan a receipt or issue one.")}</p>
+      </Modal>
+    </>
+  );
 }
 
 const readOpen = () => { try { return JSON.parse(localStorage.getItem("tameio_nav_more") || "{}"); } catch { return {}; } };
@@ -216,6 +243,7 @@ export default function AppShell() {
       </div>
       <nav className="flex-1 overflow-y-auto px-3"><NavGroups nav={nav} /></nav>
       <div className="p-3 border-t border-line">
+        <InstallApp />
         <NavItem to="/app/settings" label={t("Settings")} icon={Settings} />
         <div className="flex items-center gap-3 px-2 py-2 mt-1">
           <div className="h-9 w-9 rounded-full bg-gradient-to-br from-brand to-violet text-white font-semibold text-sm flex items-center justify-center">{(user?.name || "?")[0]}</div>
@@ -272,6 +300,7 @@ export default function AppShell() {
       </nav>
       <UpgradeDialog />
       {kind !== "practice" && <CommandPalette nav={nav} />}
+      {kind !== "practice" && <AiDraft />}
     </div>
   );
 }

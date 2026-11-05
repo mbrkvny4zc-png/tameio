@@ -33,3 +33,26 @@ export const lineTotals = (items, taxRate) => {
 };
 
 export const VAT_RATES = [24, 13, 6, 17, 9, 4, 0];
+
+// myDATA withholding (table 8.4, percentage codes) and stamp duty (table 8.6) — same codes as the backend.
+export const WITHHOLDING = {
+  1: ["Interest", 15], 2: ["Royalties", 20], 3: ["Professional / management fees", 20], 4: ["Technical works", 3], 5: ["Fuel & tobacco", 1],
+  6: ["Other goods", 4], 7: ["Provision of services", 8], 8: ["Engineers — studies", 4], 9: ["Engineers — other works", 10], 10: ["Lawyers' fees", 15],
+};
+export const STAMP_DUTY = { 1: 1.2, 2: 2.4, 3: 3.6 };
+
+/** Net/VAT plus withholding and stamp duty, per line like myDATA. `payable` is what the client actually pays. */
+export const docTotals = (items, taxRate, wcat, scat) => {
+  const wp = WITHHOLDING[wcat]?.[1] || 0;
+  const sp = STAMP_DUTY[scat] || 0;
+  let net = 0, vat = 0, wh = 0, st = 0;
+  for (const i of items) {
+    const line = Math.round((parseFloat(i.qty) || 0) * (parseFloat(i.unit_price) || 0) * 100) / 100;
+    net += line;
+    vat += Math.round(line * (parseFloat(taxRate) || 0)) / 100;
+    wh += Math.round(line * wp) / 100;
+    st += Math.round(line * sp) / 100;
+  }
+  const r = (v) => Math.round(v * 100) / 100;
+  return { net: r(net), vat: r(vat), withheld: r(wh), stamp: r(st), gross: r(net + vat), payable: r(net + vat + st - wh) };
+};

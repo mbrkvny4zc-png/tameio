@@ -27,8 +27,10 @@ export function ItemsEditor({ items, onChange, taxRate, onTaxRate, currency = "E
     if (k === "description") {
       // Picking a saved product fills in its price.
       const p = products.find((x) => x.name === v);
+      if (!p) delete next.product_id;
       if (p) {
         next.unit_price = p.unit_price;
+        next.product_id = p.id;
         api.post(`/products/${p.id}/used`).catch(() => {});
       }
     }

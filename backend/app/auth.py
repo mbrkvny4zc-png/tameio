@@ -115,6 +115,7 @@ class SignupInput(BaseModel):
     password: str
     business_name: Optional[str] = ""
     account_type: Optional[str] = "business"  # "business" | "accountant"
+    ref: Optional[str] = ""                    # accounting-firm referral code from /r/{code}
 
 
 class LoginInput(BaseModel):
@@ -125,7 +126,8 @@ class LoginInput(BaseModel):
 
 def _public_user(u: dict) -> dict:
     return {"id": u["id"], "email": u["email"], "name": u.get("name", ""), "org_id": u["org_id"],
-            "account_type": u.get("account_type", "business"), "two_factor": bool(u.get("totp_enabled"))}
+            "account_type": u.get("account_type", "business"), "two_factor": bool(u.get("totp_enabled")),
+            "platform_admin": u["email"].lower() in config.PLATFORM_ADMINS}
 
 
 @router.post("/signup")
@@ -147,6 +149,9 @@ async def signup(data: SignupInput, request: Request, response: Response):
     user = {"id": user_id, "org_id": org_id, "email": email, "name": data.name.strip(), "password": _hash(data.password),
             "account_type": account_type, "created_at": now()}
     await d.users.insert_one({**user})
+    if account_type == "business" and data.ref:
+        from app.routers.partners import attribute_by_code
+        await attribute_by_code(org_id, data.ref, "link")
     token = await _create_session(user_id)
     _set_cookie(response, token)
     return {"user": _public_user(user), "token": token}

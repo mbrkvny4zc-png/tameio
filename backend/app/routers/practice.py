@@ -98,6 +98,10 @@ async def add_client(data: NewClientInput, u: dict = Depends(current_user)):
     if afm and not gt.is_valid_afm(afm):
         raise HTTPException(status_code=400, detail="That ΑΦΜ fails the checksum")
     org_id = await create_org(u["id"], "business", data.business_name.strip(), role="accountant", created_by=u["id"])
+    from app.routers.partners import attribute, partner_of
+    p = await partner_of(u["org_id"])
+    if p:  # a business the firm set up itself counts as referred by the firm
+        await attribute(org_id, u["org_id"], "added_by_firm", p["code"])
     if afm:
         await get_db().business.update_one({"org_id": org_id}, {"$set": {"afm": afm}})
     invite_url = None

@@ -4,6 +4,20 @@ import { ArrowRight, ArrowUpRight, Check, Menu, Minus, Plus, X } from "lucide-re
 import { LogoMark, APP_NAME } from "@/components/Logo";
 import { useAuth } from "@/lib/auth";
 import { getLang, LangToggle, translate as tr } from "@/lib/i18n";
+import { api } from "@/lib/api";
+import { getRef } from "@/lib/referral";
+
+/** Thin strip at the top when a visitor arrived through an accounting firm's link. */
+function RefBanner() {
+  const [firm, setFirm] = useState("");
+  useEffect(() => { const c = getRef(); if (c) api.get(`/public/ref/${c}`).then((r) => setFirm(r.firm)).catch(() => {}); }, []);
+  if (!firm) return null;
+  return (
+    <div className="bg-[var(--p-ink)] text-[var(--p-bg)] text-[13px] text-center px-4 py-2.5" data-testid="ref-banner">
+      {tr("Recommended by {firm}", { firm })} · <Link to="/signup" className="underline underline-offset-4 font-semibold">{tr("Start free")}</Link>
+    </div>
+  );
+}
 
 // Placeholder pricing — set real prices before launch.
 const PLANS = [
@@ -183,6 +197,7 @@ export default function Landing() {
   const el = getLang() === "el";
   return (
     <div className="paper min-h-screen overflow-x-hidden">
+      <RefBanner />
       <Nav />
 
       {/* Hero */}

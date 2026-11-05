@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import {
   LayoutDashboard, FileText, FileSignature, ClipboardList, Users, Receipt, ShoppingCart, Truck, BarChart3, Settings, ScanLine, Bell, LogOut,
   Menu, X, ShieldCheck, Inbox, Landmark, CalendarClock, Calculator, ChevronsUpDown, Check, Building2, ArrowLeft, Sparkles,
-  ChevronDown, MessageSquareText, Package, PackageCheck, Search, Smartphone,
+  ChevronDown, MessageSquareText, Package, PackageCheck, Search, Smartphone, Handshake,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -15,10 +15,13 @@ import { Button, Modal, cx } from "@/components/ui";
 import { CommandPalette, NewMenu } from "@/components/CommandPalette";
 import { AiDraft } from "@/components/AiDraft";
 
-function buildNav(t, { kind, isAccountant }) {
+function buildNav(t, { kind, isAccountant, admin }) {
+  const adminGroup = admin ? [{ group: "Tameio", items: [{ to: "/app/admin/partners", label: t("Partner payouts"), icon: Handshake }] }] : [];
   if (kind === "practice") {
     return [
-      { group: null, items: [{ to: "/app/practice", label: t("My clients"), icon: Calculator, end: true }] },
+      { group: null, items: [{ to: "/app/practice", label: t("My clients"), icon: Calculator, end: true },
+        { to: "/app/partner", label: t("Partner programme"), icon: Handshake }] },
+      ...adminGroup,
     ];
   }
   // Each group shows its everyday pages; the rest sit behind "more" so the menu stays short.
@@ -49,6 +52,7 @@ function buildNav(t, { kind, isAccountant }) {
     ], more: [
       { to: "/app/calendar", label: t("Tax calendar"), icon: CalendarClock },
     ] },
+    ...adminGroup,
   ];
 }
 
@@ -225,7 +229,7 @@ export default function AppShell() {
   const loc = useLocation();
   useEffect(() => setDrawer(false), [loc.pathname]);
   const kind = current?.kind || "business";
-  const nav = buildNav(t, { kind, isAccountant });
+  const nav = buildNav(t, { kind, isAccountant, admin: !!user?.platform_admin });
   const practiceOrg = orgs?.find((o) => o.kind === "practice");
 
   const Sidebar = (
@@ -255,7 +259,7 @@ export default function AppShell() {
   );
 
   const bottom = kind === "practice"
-    ? [["/app/practice", t("Clients"), Calculator], ["/app/settings", t("Settings"), Settings]]
+    ? [["/app/practice", t("Clients"), Calculator], ["/app/partner", t("Partner"), Handshake], ["/app/settings", t("Settings"), Settings]]
     : [["/app", t("Home"), LayoutDashboard], ["/app/invoices", t("Invoices"), FileText], null, ["/app/expenses", t("Expenses"), Receipt], ["/app/reports", t("Reports"), BarChart3]];
 
   return (
@@ -289,7 +293,7 @@ export default function AppShell() {
         <main className="px-4 sm:px-6 lg:px-10 py-6 sm:py-8 pb-28 lg:pb-12 max-w-[1400px]"><Outlet /></main>
       </div>
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-20 bg-surface/95 backdrop-blur border-t border-line pb-[env(safe-area-inset-bottom)] no-print">
-        <div className={cx("grid h-16 items-center", bottom.length === 5 ? "grid-cols-5" : "grid-cols-2")}>
+        <div className={cx("grid h-16 items-center", bottom.length === 5 ? "grid-cols-5" : "grid-cols-3")}>
           {bottom.map((it) => it ? (() => {
             const [to, label, Icon] = it;
             return <NavLink key={to} to={to} end={to === "/app"} className={({ isActive }) => cx("flex flex-col items-center gap-1 text-[10px] font-semibold", isActive ? "text-brand" : "text-muted")}><Icon className="h-5 w-5" />{label}</NavLink>;

@@ -23,6 +23,7 @@ Invoicing, AADE myDATA e-invoicing, AI receipt scanning and supplier compliance 
 | **Online shops** | WooCommerce and Shopify webhooks (HMAC-signed) turn paid orders into receipts, or invoices when the buyer gives a ΑΦΜ, and report them |
 | **Stock** | Optional per product: sales and receipts take stock out, credit notes put it back, low-stock alerts, manual adjustments |
 | **Phone app** | Installable PWA with home-screen shortcuts (scan, quick receipt, new invoice); the API is never cached |
+| **Partner programme** | Every accounting firm gets a referral link (`/r/CODE`), a custom code and a QR · businesses are attributed once (sign-up link, set up by the firm, or code entered within 60 days) · monthly revenue-share report with CSV · admin page for share %, totals and payouts |
 | **Ease of use** | Grouped, shorter menu · Ctrl/⌘+K search · "+ New" menu · first-run checklist with removable sample data · Settings in four tabs |
 
 ## Stack
@@ -76,4 +77,5 @@ and any file named like a target, e.g. `taverna.jpg`, is used as-is) and run `py
 - **Withholding / stamp-duty codes** follow myDATA tables 8.4 and 8.6 as published; check them against the current AADE appendix. Only the percentage-based withholding codes (1–10) are offered.
 - **Card terminal (e-POS)** uses Viva's Cloud Terminal API (`/ecr/v1`) and has not been run against a real terminal. The Greek e-POS protocol also needs a licensed provider's signature (`aadeProvider*` fields), which comes with the provider partnership.
 - **Online shops:** a Shopify order with several VAT rates is saved for review instead of being reported (Tameio documents use one VAT rate).
+- **Partner revenue share** is calculated from plan list prices (ex VAT) and the plan-change log, because billing isn't connected yet. When billing goes live, base it on actual payments. Default share: `PARTNER_SHARE_PCT` (20%); admins (`PLATFORM_ADMINS`) can change it per firm.
 - **ΑΦΜ lookup** uses EU VIES by default (name + address for VAT-registered businesses). For ΔΟΥ and activities, set `AADE_REGISTRY_USER` / `AADE_REGISTRY_PASS` (AADE "Αναζήτηση Βασικών Στοιχείων Μητρώου" credentials).

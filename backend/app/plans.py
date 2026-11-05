@@ -70,7 +70,17 @@ async def set_plan(org_id: str, data: PlanInput, u: dict = Depends(current_user)
         raise HTTPException(status_code=403, detail="Not allowed")
     if data.plan not in PLANS:
         raise HTTPException(status_code=400, detail="Unknown plan")
-    r = await get_db().orgs.update_one({"id": org_id}, {"$set": {"plan": data.plan, "plan_changed_at": now()}})
-    if not r.matched_count:
-        raise HTTPException(status_code=404, detail="Organisation not found")
+    await change_plan(org_id, data.plan, u["email"])
     return {"ok": True}
+
+
+async def change_plan(org_id: str, plan: str, by: str = ""):
+    """Every plan change is logged so revenue (and partner revenue share) can be replayed month by month."""
+    d = get_db()
+    org = await d.orgs.find_one({"id": org_id}, {"_id": 0, "plan": 1})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation not found")
+    if org.get("plan") == plan:
+        return
+    await d.orgs.update_one({"id": org_id}, {"$set": {"plan": plan, "plan_changed_at": now()}})
+    await d.plan_changes.insert_one({"org_id": org_id, "from": org.get("plan") or "free", "plan": plan, "at": now(), "by": by})

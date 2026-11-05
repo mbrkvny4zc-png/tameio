@@ -192,6 +192,27 @@ function TerminalTab() {
   );
 }
 
+/** "Referred by your accountant" — shows who referred this business, or lets the owner add the firm's code. */
+function ReferralCard() {
+  const { t } = useT();
+  const [r, setR] = useState(null);
+  const [code, setCode] = useState("");
+  useEffect(() => { api.get("/referral").then(setR).catch(() => {}); }, []);
+  if (!r || (!r.referred && !r.can_add)) return null;
+  const add = async () => { try { setR(await api.post("/referral", { code })); toast.success(t("Thanks — your accountant's firm is linked")); } catch (e) { toast.error(e.message); } };
+  return (
+    <Card className="p-5 sm:p-6" data-testid="referral-card">
+      <p className="font-bold">{t("Referred by an accountant?")}</p>
+      {r.referred
+        ? <p className="text-sm text-muted mt-1">{t("Recommended by {firm}", { firm: r.firm })} · {date(r.since)}</p>
+        : <>
+          <p className="text-sm text-muted mt-1 mb-3">{t("If your accounting firm recommended Tameio, enter their code. It costs you nothing.")}</p>
+          <div className="flex gap-2 max-w-sm"><Input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="PAPADOPOULOS" data-testid="referral-code" /><Button onClick={add} disabled={code.length < 3}>{t("Add")}</Button></div>
+        </>}
+    </Card>
+  );
+}
+
 function ImportCard() {
   const { t } = useT();
   const [kind, setKind] = useState(null);
@@ -496,7 +517,7 @@ export default function Settings() {
         ))}
       </div>
       {tab === "business" && <><BusinessTab />{!practice && <ImportCard />}</>}
-      {tab === "team" && <div className="space-y-8"><Section title={t("Team")}><TeamTab /></Section><Section title={t("Plan")}><PlanTab /></Section></div>}
+      {tab === "team" && <div className="space-y-8"><Section title={t("Team")}><TeamTab /></Section><Section title={t("Plan")}><PlanTab /><ReferralCard /></Section></div>}
       {tab === "connections" && (
         <div className="space-y-8">
           <Section title={t("Card payments")}><PaymentsTab /><TerminalTab /></Section>

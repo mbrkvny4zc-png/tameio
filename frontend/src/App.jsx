@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { useOrg } from "@/lib/org";
 import { useAuth } from "@/lib/auth";
 import { PageLoader } from "@/components/ui";
@@ -7,6 +7,14 @@ import AppShell from "@/components/AppShell";
 import Landing from "@/pages/Landing";
 import { AcceptInvite, Login, Signup } from "@/pages/Auth";
 import { translate as tr } from "@/lib/i18n";
+import { saveRef } from "@/lib/referral";
+
+/** /r/CODE — an accounting firm's referral link: remember the code, then show the landing page. */
+function RefLink() {
+  const { code } = useParams();
+  saveRef(code);
+  return <Navigate to="/" replace />;
+}
 
 const Dashboard = lazy(() => import("@/pages/app/Dashboard"));
 const Invoices = lazy(() => import("@/pages/app/Invoices"));
@@ -26,6 +34,8 @@ const Requests = lazy(() => import("@/pages/app/Requests"));
 const Ask = lazy(() => import("@/pages/app/Ask"));
 const Products = lazy(() => import("@/pages/app/Products"));
 const DeliveryNotes = lazy(() => import("@/pages/app/DeliveryNotes"));
+const Partner = lazy(() => import("@/pages/app/Partner"));
+const AdminPartners = lazy(() => import("@/pages/app/AdminPartners"));
 const PublicDeliveryNote = lazy(() => import("@/pages/public/PublicDeliveryNote"));
 const Privacy = lazy(() => import("@/pages/Privacy"));
 const PaidReturn = lazy(() => import("@/pages/public/PaidReturn"));
@@ -60,6 +70,7 @@ export default function App() {
         <Route path="/q/:token" element={<PublicQuote />} />
         <Route path="/s/:token" element={<SupplierPortal />} />
         <Route path="/d/:token" element={<PublicDeliveryNote />} />
+        <Route path="/r/:code" element={<RefLink />} />
         <Route path="/app" element={<RequireAuth><AppShell /></RequireAuth>}>
           <Route index element={<Home />} />
           <Route path="practice" element={<Practice />} />
@@ -68,6 +79,8 @@ export default function App() {
           <Route path="calendar" element={<Calendar />} />
           <Route path="requests" element={<Requests />} />
           <Route path="ask" element={<Ask />} />
+          <Route path="partner" element={<Partner />} />
+          <Route path="admin/partners" element={<AdminPartners />} />
           <Route path="products" element={<Products />} />
           <Route path="delivery-notes" element={<DeliveryNotes />} />
           <Route path="invoices" element={<Invoices />} />

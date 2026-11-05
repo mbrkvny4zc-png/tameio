@@ -43,3 +43,6 @@ VIVA_ENV = os.environ.get("VIVA_ENV", "demo")
 # With AADE's "registry search" credentials you also get ΔΟΥ and business activities.
 AADE_REGISTRY_USER = os.environ.get("AADE_REGISTRY_USER", "")
 AADE_REGISTRY_PASS = os.environ.get("AADE_REGISTRY_PASS", "")
+
+# Partner programme: default revenue share (%) for accounting firms that refer paying businesses.
+PARTNER_SHARE_PCT = float(os.environ.get("PARTNER_SHARE_PCT", "20"))

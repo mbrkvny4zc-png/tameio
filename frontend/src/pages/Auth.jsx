@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getRef, clearRef } from "@/lib/referral";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Briefcase, Calculator, ScanLine, ShieldCheck, Truck, UserPlus } from "lucide-react";
 import { api, setOrg } from "@/lib/api";
@@ -86,18 +87,21 @@ export function Signup() {
   const [f, setF] = useState({ name: "", business_name: "", email: params.get("email") || "", password: "", account_type: params.get("type") === "accountant" ? "accountant" : "business" });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [ref] = useState(() => getRef());
+  const [firm, setFirm] = useState("");
+  useEffect(() => { if (ref) api.get(`/public/ref/${ref}`).then((r) => setFirm(r.firm)).catch(() => {}); }, [ref]);
   const next = safeNext(params.get("next"));
   if (user) return <Navigate to={next} replace />;
   const submit = async (e) => {
     e.preventDefault(); setBusy(true); setErr("");
-    try { await signup(f); setOrg(""); nav(next === "/app" ? (f.account_type === "accountant" ? "/app/practice" : "/app?welcome=1") : next, { replace: true }); }
+    try { await signup({ ...f, ref: f.account_type === "business" ? ref : "" }); clearRef(); setOrg(""); nav(next === "/app" ? (f.account_type === "accountant" ? "/app/practice" : "/app?welcome=1") : next, { replace: true }); }
     catch (e2) { setErr(e2.message); }
     setBusy(false);
   };
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const isAcct = f.account_type === "accountant";
   return (
-    <Frame title={t("Create your account")} subtitle={t("Free to start. No card needed.")} footer={<>{t("Already have an account?")} <Link to={`/login${params.get("next") ? `?next=${encodeURIComponent(params.get("next"))}` : ""}`} className="text-brand font-semibold">{t("Sign in")}</Link></>}>
+    <Frame title={t("Create your account")} subtitle={firm && !isAcct ? t("Recommended by {firm}", { firm }) : t("Free to start. No card needed.")} footer={<>{t("Already have an account?")} <Link to={`/login${params.get("next") ? `?next=${encodeURIComponent(params.get("next"))}` : ""}`} className="text-brand font-semibold">{t("Sign in")}</Link></>}>
       <form onSubmit={submit} className="space-y-4">
         <div className="grid grid-cols-2 gap-2" role="radiogroup">
           {[["business", Briefcase, t("I run a business")], ["accountant", Calculator, t("I'm an accountant")]].map(([k, Icon, l]) => (

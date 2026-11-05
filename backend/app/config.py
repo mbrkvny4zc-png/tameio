@@ -38,3 +38,8 @@ INBOUND_SECRET = os.environ.get("INBOUND_SECRET", "")
 
 # Viva Wallet (card payments on invoices). "demo" or "live".
 VIVA_ENV = os.environ.get("VIVA_ENV", "demo")
+
+# ΑΦΜ auto-fill. Without these, lookups use the free EU VIES registry (name + address only).
+# With AADE's "registry search" credentials you also get ΔΟΥ and business activities.
+AADE_REGISTRY_USER = os.environ.get("AADE_REGISTRY_USER", "")
+AADE_REGISTRY_PASS = os.environ.get("AADE_REGISTRY_PASS", "")

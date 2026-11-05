@@ -247,6 +247,8 @@ async def submit(invoice_id: str, data: MyDataInput, ctx: Ctx = Depends(get_ctx)
     settings = await _settings(ws)
     env = settings.get("environment", "simulation")
     simulated = env == "simulation"
+    if inv.get("sample") or inv.get("imported"):
+        raise HTTPException(status_code=400, detail="Sample and imported invoices can't be sent to myDATA")
     existing = inv.get("mydata") or {}
     if existing.get("mark") and existing.get("state") == "transmitted":
         if not existing.get("simulated") or simulated:

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { BellRing, FilePlus2, FileText, Link2, Pencil, Printer, RotateCcw, Search, Send, Trash2, Repeat, Paperclip } from "lucide-react";
+import { BellRing, Copy, FilePlus2, FileText, Link2, PackageCheck, Pencil, Printer, ReceiptText, RotateCcw, Search, Send, Trash2, Repeat, Paperclip, Banknote, CreditCard } from "lucide-react";
+import { RowMenu } from "@/components/Extras";
+import { useProducts } from "@/components/ItemsEditor";
 import { api, openFile } from "@/lib/api";
 import { date, lineTotals, money, todayISO } from "@/lib/format";
 import { printDocument } from "@/lib/print";
@@ -13,7 +15,7 @@ import { translate as tr } from "@/lib/i18n";
 const STATUS = {
   draft: ["Draft", "neutral"], sent: ["Sent", "brand"], paid: ["Paid", "success"], overdue: ["Overdue", "danger"], credited: ["Credit note", "violet"],
 };
-const FILTERS = [["all", "All"], ["draft", "Drafts"], ["unpaid", "Unpaid"], ["overdue", "Overdue"], ["paid", "Paid"], ["unreported", "Not in myDATA"], ["credit", "Credit notes"]];
+const FILTERS = [["all", "All"], ["unpaid", "Unpaid"], ["overdue", "Overdue"], ["paid", "Paid"], ["receipts", "Receipts"], ["draft", "Drafts"], ["unreported", "Not in myDATA"], ["credit", "Credit notes"]];
 
 export function blankInvoice(biz) {
   return { client_id: null, client_name: "", client_email: "", client_afm: "", items: [{ ...EMPTY_ITEM }], tax_rate: biz?.default_tax_rate ?? 24,
@@ -102,6 +104,61 @@ function CreditNoteDialog({ invoice, onClose, onCreated }) {
   );
 }
 
+/** Counter sale: a few taps, paid on the spot, reported to myDATA as ΑΛΠ (goods) or ΑΠΥ (services). */
+function QuickReceipt({ open, onClose, onDone, biz }) {
+  const products = useProducts();
+  const [items, setItems] = useState([{ ...EMPTY_ITEM }]);
+  const [rate, setRate] = useState(24);
+  const [kind, setKind] = useState("goods");
+  const [payment, setPayment] = useState("card");
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (open) { setItems([{ ...EMPTY_ITEM }]); setRate(biz?.default_tax_rate ?? 24); setEmail(""); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  const t = lineTotals(items, rate);
+  const add = (p) => {
+    const blank = items.findIndex((i) => !i.description.trim());
+    const line = { description: p.name, qty: 1, unit_price: p.unit_price };
+    setItems(blank >= 0 ? items.map((x, j) => (j === blank ? line : x)) : [...items, line]);
+    if (items.every((i) => !i.description.trim())) setRate(p.tax_rate);
+    api.post(`/products/${p.id}/used`).catch(() => {});
+  };
+  const issue = async () => {
+    setBusy(true);
+    try {
+      const r = await api.post("/receipts", { items: items.filter((i) => i.description.trim()).map((i) => ({ description: i.description, qty: parseFloat(i.qty) || 0, unit_price: parseFloat(i.unit_price) || 0 })),
+        tax_rate: rate, kind, payment, customer_email: email });
+      if (r.mydata) toast.success(tr("{n} issued · ΜΑΡΚ {m}", { n: r.receipt.number, m: r.mydata }));
+      else toast.message(tr("{n} issued", { n: r.receipt.number }), { description: r.mydata_error ? tr(r.mydata_error) : undefined });
+      onDone(r.receipt);
+    } catch (e) { toast.error(e.message); }
+    setBusy(false);
+  };
+  return (
+    <Modal open={open} onClose={onClose} wide title={tr("Quick receipt")} description={tr("For walk-in customers. It's marked paid and reported to myDATA straight away.")}
+      footer={<><Button variant="secondary" onClick={onClose}>{tr("Cancel")}</Button><Button onClick={issue} loading={busy} disabled={t.total <= 0} data-testid="receipt-issue">{tr("Issue receipt")} · {money(t.total)}</Button></>}>
+      <div className="space-y-5" data-testid="quick-receipt">
+        {products.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {products.slice(0, 10).map((p) => (
+              <button key={p.id} onClick={() => add(p)} className="px-3 py-1.5 rounded-full border border-line text-sm hover:bg-surface-2">{p.name} <span className="text-muted num">€{p.unit_price}</span></button>
+            ))}
+          </div>
+        )}
+        <ItemsEditor items={items} onChange={setItems} taxRate={rate} onTaxRate={setRate} />
+        <div className="grid sm:grid-cols-3 gap-3">
+          <Field label={tr("What was sold")}><Segmented value={kind} onChange={setKind} options={[["goods", "Goods"], ["services", "Services"]]} /></Field>
+          <Field label={tr("Paid with")}>
+            <div className="flex gap-2">{[["card", "Card", CreditCard], ["cash", "Cash", Banknote]].map(([k, l, I]) => (
+              <button key={k} onClick={() => setPayment(k)} className={`flex-1 h-10 rounded-xl border text-sm font-semibold inline-flex items-center justify-center gap-1.5 ${payment === k ? "border-brand bg-brand-soft text-brand" : "border-line"}`}><I className="h-4 w-4" />{tr(l)}</button>
+            ))}</div>
+          </Field>
+          <Field label={tr("Email a copy (optional)")}><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.gr" /></Field>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 export default function Invoices() {
   const [params, setParams] = useSearchParams();
   const [list, setList] = useState(null);
@@ -112,6 +169,8 @@ export default function Invoices() {
   const [editing, setEditing] = useState(null);
   const [mydataInv, setMydataInv] = useState(null);
   const [creditFor, setCreditFor] = useState(null);
+  const [receipt, setReceipt] = useState(false);
+  const go = useNavigate();
 
   const load = useCallback(async () => {
     const [inv, cl, b] = await Promise.all([api.get("/invoices"), api.get("/clients"), api.get("/business")]);
@@ -120,13 +179,16 @@ export default function Invoices() {
   }, []);
   useEffect(() => { load().catch(() => setList([])); }, [load]);
   useEffect(() => {
-    if (params.get("new") && list) { setEditing(blankInvoice(biz)); params.delete("new"); setParams(params, { replace: true }); }
+    if (!list) return;
+    if (params.get("new")) { setEditing(blankInvoice(biz)); params.delete("new"); setParams(params, { replace: true }); }
+    if (params.get("receipt")) { setReceipt(true); params.delete("receipt"); setParams(params, { replace: true }); }
+    if (params.get("q")) { setQ(params.get("q")); params.delete("q"); setParams(params, { replace: true }); }
   }, [params, list]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const shown = useMemo(() => (list || []).filter((i) => {
     const md = i.mydata || {};
     const ok = { all: true, draft: i.status === "draft", unpaid: ["sent", "overdue"].includes(i.status), overdue: i.status === "overdue", paid: i.status === "paid",
-      unreported: i.status !== "draft" && !["transmitted", "cancelled"].includes(md.state), credit: i.kind === "credit_note" }[filter];
+      unreported: i.status !== "draft" && !i.imported && !["transmitted", "cancelled"].includes(md.state), credit: i.kind === "credit_note", receipts: i.kind === "receipt" }[filter];
     return ok && (!q || `${i.number} ${i.client_name} ${i.client_company || ""}`.toLowerCase().includes(q.toLowerCase()));
   }), [list, filter, q]);
 
@@ -161,11 +223,22 @@ export default function Invoices() {
     if (!window.confirm(`Delete ${inv.number}?`)) return;
     try { await api.del(`/invoices/${inv.id}`); toast.success(tr("Deleted")); load(); } catch (e) { toast.error(e.message); }
   };
+  const duplicate = async (inv) => {
+    try { const d = await api.post(`/invoices/${inv.id}/duplicate`); toast.success(tr("{n} created as a draft", { n: d.number })); const l = await load(); const x = l.find((y) => y.id === d.id); if (x && x.kind !== "receipt") setEditing({ ...x, due_date: "" }); }
+    catch (e) { toast.error(e.message); }
+  };
+  const deliveryNote = async (inv) => {
+    try { const n = await api.post(`/delivery-notes/from-invoice/${inv.id}`); toast.success(tr("Delivery note {n} drafted from the invoice", { n: n.number })); go(`/app/delivery-notes?open=${n.id}`); }
+    catch (e) { toast.error(e.message); }
+  };
   const print = async (inv) => { if (!(await printDocument(inv, biz, inv.kind === "credit_note" ? "credit_note" : "invoice"))) toast.error(tr("Allow pop-ups to print")); };
 
   if (!list) return <PageLoader />; return (<div className="animate-in">
-      <PageHeader title={tr("Invoices")} subtitle={tr("Bill clients, get paid, and report to myDATA.")}
-        actions={<Button onClick={() => setEditing(blankInvoice(biz))} data-testid="new-invoice"><FilePlus2 className="h-4 w-4" />{tr("New invoice")}</Button>} />
+      <PageHeader title={tr("Invoices & receipts")} subtitle={tr("Bill clients, ring up counter sales, get paid — all reported to myDATA.")}
+        actions={<>
+          <Button variant="secondary" onClick={() => setReceipt(true)} data-testid="new-receipt"><ReceiptText className="h-4 w-4" />{tr("Quick receipt")}</Button>
+          <Button onClick={() => setEditing(blankInvoice(biz))} data-testid="new-invoice"><FilePlus2 className="h-4 w-4" />{tr("New invoice")}</Button>
+        </>} />
 
       <div className="grid grid-cols-3 gap-3 mb-5">
         {[["Unpaid", totals.unpaid, ""], ["Overdue", totals.overdue, "text-danger"], ["Paid", totals.paid, "text-success"]].map(([l, v, c]) => (
@@ -194,7 +267,7 @@ export default function Invoices() {
               <td className="td"><p className="font-medium">{i.client_name}</p><p className="text-[11px] text-muted">{date(i.issue_date)}{i.paid_via && ` · paid by ${i.paid_via === "viva" ? "card" : "bank"}`}{i.reminders?.length ? ` · ${i.reminders.length} reminder(s)` : ""}</p></td>
               <td className={`td text-right num font-semibold ${i.kind === "credit_note" ? "text-violet" : ""}`}>{i.kind === "credit_note" ? "−" : ""}{money(i.total, i.currency)}</td>
               <td className="td">
-                {i.kind === "credit_note" ? <Badge tone="violet">{tr("Credit note")}</Badge> : (
+                {i.kind === "credit_note" ? <Badge tone="violet">{tr("Credit note")}</Badge> : i.kind === "receipt" ? <Badge tone="success">{tr(i.payment === "cash" ? "Paid · cash" : "Paid · card")}</Badge> : (
                   <select value={i.status} onChange={(e) => setStatus(i, e.target.value)} aria-label={tr("Status")}
                     className={`chip cursor-pointer border-0 pr-5 appearance-none ${{ neutral: "bg-surface-2 text-muted", brand: "bg-brand-soft text-brand", success: "bg-success/10 text-success", danger: "bg-danger/10 text-danger" }[STATUS[i.status][1]]}`}>
                     {["draft", "sent", "paid", "overdue"].map((s) => <option key={s} value={s}>{tr(STATUS[s][0])}</option>)}
@@ -202,17 +275,21 @@ export default function Invoices() {
                 )}
               </td>
               <td className="td text-muted hidden md:table-cell whitespace-nowrap">{i.due_date ? date(i.due_date) : "—"}</td>
-              <td className="td"><MyDataBadge inv={i} onClick={() => setMydataInv(i)} /></td>
+              <td className="td">{i.imported ? <span className="text-[11px] text-muted">{tr("Imported")}</span> : <MyDataBadge inv={i} onClick={() => setMydataInv(i)} />}</td>
               <td className="td">
-                <div className="flex justify-end -mr-2">
-                  {i.kind !== "credit_note" && i.mydata?.state === "transmitted" && <IconBtn icon={RotateCcw} label={tr("Issue credit note")} onClick={() => setCreditFor(i)} data-testid={`credit-${i.id}`} />}
-                  {["sent", "overdue"].includes(i.status) && i.client_email && <IconBtn icon={BellRing} label={tr("Send payment reminder")} onClick={() => remind(i)} />}
-                  <IconBtn icon={Send} label={tr("Email to client")} onClick={() => send(i)} />
-                  {i.status !== "draft" && <IconBtn icon={Link2} label={tr("Copy client link")} onClick={() => share(i)} />}
+                <div className="flex justify-end items-center -mr-2">
+                  {i.kind !== "receipt" && <IconBtn icon={Send} label={tr("Email to client")} onClick={() => send(i)} />}
                   <IconBtn icon={Printer} label={tr("Print / PDF")} onClick={() => print(i)} />
-                  {i.file && <IconBtn icon={Paperclip} label={tr("Original scan")} onClick={() => openFile(`/scans/${i.scan_id}/file`).catch(() => toast.error(tr("File not available")))} />}
-                  {!locked(i) && i.kind !== "credit_note" && <IconBtn icon={Pencil} label={tr("Edit")} onClick={() => setEditing({ ...i, due_date: i.due_date || "" })} />}
-                  {!locked(i) && <IconBtn icon={Trash2} label={tr("Delete")} tone="danger" onClick={() => del(i)} />}
+                  {!locked(i) && !["credit_note", "receipt"].includes(i.kind) && <IconBtn icon={Pencil} label={tr("Edit")} onClick={() => setEditing({ ...i, due_date: i.due_date || "" })} />}
+                  <RowMenu items={[
+                    ["sent", "overdue"].includes(i.status) && i.client_email && { label: tr("Send payment reminder"), icon: BellRing, onClick: () => remind(i) },
+                    i.status !== "draft" && { label: tr("Copy client link"), icon: Link2, onClick: () => share(i) },
+                    i.kind !== "credit_note" && { label: tr("Duplicate"), icon: Copy, onClick: () => duplicate(i), testid: `dup-${i.id}` },
+                    i.kind === "invoice" && { label: tr("Create delivery note"), icon: PackageCheck, onClick: () => deliveryNote(i), testid: `dn-${i.id}` },
+                    i.kind === "invoice" && i.mydata?.state === "transmitted" && { label: tr("Issue credit note"), icon: RotateCcw, onClick: () => setCreditFor(i), testid: `credit-${i.id}` },
+                    i.file && { label: tr("Original scan"), icon: Paperclip, onClick: () => openFile(`/scans/${i.scan_id}/file`).catch(() => toast.error(tr("File not available"))) },
+                    !locked(i) && { label: tr("Delete"), icon: Trash2, tone: "danger", onClick: () => del(i) },
+                  ]} />
                 </div>
               </td>
             </tr>
@@ -223,6 +300,7 @@ export default function Invoices() {
 
       <InvoiceEditor value={editing} clients={clients} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />
       <MyDataDialog invoice={mydataInv} onClose={() => setMydataInv(null)} onChanged={async (u) => { const l = await load(); if (u) setMydataInv(l.find((x) => x.id === u.id) || u); }} />
+      <QuickReceipt open={receipt} biz={biz} onClose={() => setReceipt(false)} onDone={() => { setReceipt(false); setFilter("receipts"); load(); }} />
       <CreditNoteDialog invoice={creditFor} onClose={() => setCreditFor(null)} onCreated={async (cn) => { setCreditFor(null); const l = await load(); setMydataInv(l.find((x) => x.id === cn.id)); }} />
     </div>
   );

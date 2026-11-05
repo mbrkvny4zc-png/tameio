@@ -8,3 +8,4 @@ __pycache__/
 !.env.example
 backend/uploads/
 .DS_Store
+frontend/photos-src/

@@ -7,6 +7,7 @@ import {
 import { api, download } from "@/lib/api";
 import { Badge, Button, Card, Empty, Field, IconBtn, Input, Modal, PageHeader, PageLoader, Segmented, Sheet, Table, Textarea } from "@/components/ui";
 import { translate as tr } from "@/lib/i18n";
+import { AfmInput } from "@/components/Extras";
 
 export const VERDICT = {
   compliant: ["Compliant", "success", ShieldCheck], attention: ["Needs attention", "warn", ShieldAlert], blocked: ["Blocked", "danger", ShieldX],
@@ -158,8 +159,9 @@ function SupplierSheet({ supplier, onClose, onChanged, onDeleted }) {
         </>
       )}
       <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2">{F("name", "Company name", { "data-testid": "supplier-name" })}</div>
-        {F("afm", "ΑΦΜ")}{F("doy", "ΔΟΥ")}
+        <Field label={tr("ΑΦΜ")}><AfmInput value={form.afm} country={form.country} onChange={(v) => setForm((x) => ({ ...x, afm: v }))}
+          onFound={(r) => setForm((x) => ({ ...x, name: x.name || r.name, address: x.address || [r.address, r.postal_code, r.city].filter(Boolean).join(", "), doy: r.doy || x.doy }))} /></Field>{F("doy", tr("ΔΟΥ"))}
+        <div className="col-span-2">{F("name", tr("Company name"), { "data-testid": "supplier-name" })}</div>
         {F("contact_name", "Contact person")}{F("email", "Email", { type: "email" })}
         {F("phone", "Phone")}{F("category", "Category", { placeholder: "e.g. Materials" })}
         <div className="col-span-2">{F("iban", "IBAN")}</div>

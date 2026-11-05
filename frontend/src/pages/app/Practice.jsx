@@ -6,6 +6,7 @@ import { money, relative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import { useOrg } from "@/lib/org";
 import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, PageLoader, Segmented } from "@/components/ui";
+import { AfmInput } from "@/components/Extras";
 
 const STATUS = { attention: ["Needs work", "warn"], ready: ["Ready to close", "success"], closed: ["Closed", "neutral"] };
 
@@ -75,8 +76,8 @@ function AddClient({ onClose, onAdded }) {
     <Modal open onClose={onClose} title={t("Add a client business")} description={t("Set it up now; invite the owner when you're ready.")}
       footer={<><Button variant="secondary" onClick={onClose}>{t("Cancel")}</Button><Button onClick={save} loading={busy} disabled={!f.business_name.trim()} data-testid="add-client-save">{t("Add client")}</Button></>}>
       <div className="space-y-3">
+        <Field label={t("ΑΦΜ")} hint={t("The business name fills in from the registry.")}><AfmInput value={f.afm} onChange={(v) => setF((x) => ({ ...x, afm: v }))} onFound={(r) => setF((x) => ({ ...x, business_name: x.business_name || r.name }))} /></Field>
         <Field label={t("Business name")}><Input value={f.business_name} onChange={(e) => setF({ ...f, business_name: e.target.value })} data-testid="add-client-name" /></Field>
-        <Field label={t("ΑΦΜ")}><Input value={f.afm} onChange={(e) => setF({ ...f, afm: e.target.value })} placeholder={t("9 digits")} /></Field>
         <Field label={t("Owner's email (optional)")} hint={t("They'll get an invitation to become the owner.")}><Input type="email" value={f.owner_email} onChange={(e) => setF({ ...f, owner_email: e.target.value })} /></Field>
       </div>
     </Modal>

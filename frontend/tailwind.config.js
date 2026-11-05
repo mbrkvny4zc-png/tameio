@@ -13,6 +13,7 @@ export default {
       fontFamily: {
         sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
         display: ["'Plus Jakarta Sans'", "Inter", "sans-serif"],
+        serif: ["Literata", "Georgia", "'Times New Roman'", "serif"],
       },
       borderRadius: { xl: "14px", "2xl": "18px", "3xl": "24px" },
       boxShadow: {

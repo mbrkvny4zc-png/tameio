@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
-  ArrowUpRight, ScanLine, FilePlus2, FileSignature, ReceiptText, AlertTriangle, ShieldCheck, Truck, Clock, CheckCircle2, Circle, TrendingUp, TrendingDown, Landmark,
+  ArrowUpRight, ScanLine, FilePlus2, FileSignature, ReceiptText, AlertTriangle, ShieldCheck, Truck, Clock, CheckCircle2, Circle, TrendingUp, TrendingDown, Landmark, Trash2, Sparkles, FileSpreadsheet, MessageSquareText,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useT } from "@/lib/i18n";
 import { compactMoney, money, date } from "@/lib/format";
-import { Card, PageLoader, Stat, Badge } from "@/components/ui";
+import { Button, Card, PageLoader, Stat, Badge } from "@/components/ui";
 import { translate as tr } from "@/lib/i18n";
 
 const MONTH = (m) => new Date(m + "-01T00:00:00").toLocaleDateString("en-GB", { month: "short" });
@@ -38,27 +39,74 @@ export function IncomeExpenseChart({ data, height = 260 }) {
   );
 }
 
-function Setup({ biz, mydata, invoices, expenses, suppliers }) {
-  const steps = [
-    ["Add your business details", !!(biz.business_name && biz.afm), "/app/settings"],
-    ["Try myDATA (simulation is fine)", mydata.transmitted > 0, "/app/mydata"],
-    ["Create your first invoice", invoices > 0, "/app/invoices?new=1"],
-    ["Scan a receipt", expenses > 0, "/app/scan"],
-    ["Invite a supplier", suppliers > 0, "/app/suppliers"],
-  ];
-  const done = steps.filter((s) => s[1]).length; if (done === steps.length) return null; return (<Card className="p-5 sm:p-6 mb-6 bg-gradient-to-br from-brand-soft to-surface">
-      <div className="flex items-center justify-between gap-3">
-        <div><p className="font-bold">{tr("Get set up")}</p><p className="text-sm text-muted">{tr("{a} of {b} done", { a: done, b: steps.length })}</p></div>
-        <div className="h-2 w-32 rounded-full bg-line overflow-hidden"><div className="h-full bg-brand transition-all" style={{ width: `${(done / steps.length) * 100}%` }} /></div>
+const STEPS = {
+  business: ["Add your business details", "Type your ΑΦΜ — name and address fill in by themselves."],
+  mydata: ["Connect myDATA", "Simulation mode is fine to start — nothing reaches AADE."],
+  client: ["Add a client", "Or import your client list from Excel."],
+  invoice: ["Issue your first invoice or receipt", "Pick saved products, send, done."],
+  expense: ["Snap a receipt", "AI reads it and files the expense."],
+};
+
+/** First-run guide: what's left to set up, plus sample data to explore safely. */
+function Onboarding({ onChanged }) {
+  const [o, setO] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const load = () => api.get("/onboarding").then(setO).catch(() => {});
+  useEffect(() => { load(); }, []);
+  if (!o || o.dismissed || (o.done === o.total && !o.has_sample)) return null;
+  const sample = async (on) => {
+    setBusy(true);
+    try {
+      if (on) { await api.post("/onboarding/sample-data"); toast.success(tr("Sample data added — have a look around")); }
+      else { const r = await api.del("/onboarding/sample-data"); toast.success(tr("Removed {n} sample records", { n: r.removed })); }
+      await load(); onChanged?.();
+    } catch (e) { toast.error(e.message); }
+    setBusy(false);
+  };
+  const dismiss = async () => { await api.post("/onboarding/dismiss").catch(() => {}); setO({ ...o, dismissed: true }); };
+  return (
+    <Card className="p-5 sm:p-6 mb-6 overflow-hidden relative" data-testid="onboarding">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div>
+          <p className="font-serif text-2xl">{o.done === o.total ? tr("You're all set up") : tr("Let's get you set up")}</p>
+          <p className="text-sm text-muted mt-1">{tr("{a} of {b} done", { a: o.done, b: o.total })} · {tr("about five minutes")}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {o.has_sample
+            ? <Button size="sm" variant="secondary" onClick={() => sample(false)} loading={busy} data-testid="sample-clear"><Trash2 className="h-3.5 w-3.5" />{tr("Clear sample data")}</Button>
+            : <Button size="sm" variant="soft" onClick={() => sample(true)} loading={busy} data-testid="sample-add"><Sparkles className="h-3.5 w-3.5" />{tr("Explore with sample data")}</Button>}
+          <Link to="/app/settings" className="h-8 px-3 text-xs gap-1.5 inline-flex items-center rounded-xl font-semibold border border-line hover:bg-surface-2"><FileSpreadsheet className="h-3.5 w-3.5" />{tr("Import from Excel")}</Link>
+          <button onClick={dismiss} className="h-8 px-2 text-xs text-muted hover:text-ink">{tr("Hide")}</button>
+        </div>
       </div>
-      <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-5 gap-2">
-        {steps.map(([t, ok, to]) => (
-          <Link key={t} to={to} className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm border ${ok ? "border-transparent text-muted line-through" : "border-line bg-surface hover:border-brand/40"}`}>
-            {ok ? <CheckCircle2 className="h-4 w-4 text-success shrink-0" /> : <Circle className="h-4 w-4 text-muted shrink-0" />}{tr(t)}
-          </Link>
-        ))}
-      </div>
+      <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden mt-4"><div className="h-full bg-brand transition-all" style={{ width: `${(o.done / o.total) * 100}%` }} /></div>
+      <ol className="mt-4 grid sm:grid-cols-2 lg:grid-cols-5 gap-2">
+        {o.steps.map((st, n) => {
+          const [title, hint] = STEPS[st.key];
+          return (
+            <li key={st.key}>
+              <Link to={st.key === "invoice" ? "/app/invoices?new=1" : st.to} className={`h-full flex gap-3 rounded-xl p-3 text-sm border transition-colors ${st.done ? "border-transparent bg-surface-2/60" : "border-line hover:border-brand/40 hover:bg-surface-2/40"}`}>
+                {st.done ? <CheckCircle2 className="h-5 w-5 text-success shrink-0" /> : <span className="h-5 w-5 rounded-full border border-line text-[11px] font-bold text-muted flex items-center justify-center shrink-0">{n + 1}</span>}
+                <span><span className={`block font-semibold ${st.done ? "text-muted line-through" : ""}`}>{tr(title)}</span><span className="block text-xs text-muted mt-0.5">{tr(hint)}</span></span>
+              </Link>
+            </li>
+          );
+        })}
+      </ol>
+      {o.has_sample && <p className="text-xs text-warn mt-3">{tr("Sample records are marked SAMPLE and never go to myDATA. Clear them before you start for real.")}</p>}
     </Card>
+  );
+}
+
+function AskBox() {
+  const [q, setQ] = useState("");
+  const go = useNavigate();
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); go(`/app/ask${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ""}`); }} className="card flex items-center gap-2 p-2 pl-4 mb-6" data-testid="dash-ask">
+      <MessageSquareText className="h-4 w-4 text-brand shrink-0" />
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr("Ask about your numbers — e.g. “who owes me money?”")} className="flex-1 bg-transparent outline-none text-sm h-9 min-w-0" />
+      <button type="submit" className="h-9 px-3 rounded-lg bg-surface-2 text-sm font-semibold hover:bg-line">{tr("Ask")}</button>
+    </form>
   );
 }
 
@@ -67,18 +115,20 @@ export default function Dashboard() {
   const { t, lang } = useT();
   const [d, setD] = useState(null);
 
-  useEffect(() => {
+  const load = () =>
     Promise.all([api.get("/reports/summary"), api.get("/reports/attention"), api.get("/business"), api.get("/mydata/stats"),
       api.get("/invoices"), api.get("/expenses"), api.get("/suppliers"), api.get("/receipt-requests").catch(() => []), api.get("/tax/calendar?months=2").catch(() => ({ items: [] }))])
       .then(([summary, attention, biz, mydata, invoices, expenses, suppliers, requests, calendar]) => setD({ summary, attention, biz, mydata, invoices, expenses, suppliers, requests, calendar }))
       .catch(() => setD(false));
-  }, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (d === null) return <PageLoader />; if (d === false) return <p className="text-muted">{tr("Couldn't load your dashboard. Refresh to try again.")}</p>;
   const { summary: s, attention: a } = d;
   const hour = new Date().getHours();
   const greet = t(hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening");
-  const monthName = new Date().toLocaleDateString(lang === "el" ? "el-GR" : "en-GB", { month: "long" });
+  // Browsers give the genitive ("Νοεμβρίου"); the heading needs the nominative.
+  const EL_MONTHS = ["Ιανουάριος", "Φεβρουάριος", "Μάρτιος", "Απρίλιος", "Μάιος", "Ιούνιος", "Ιούλιος", "Αύγουστος", "Σεπτέμβριος", "Οκτώβριος", "Νοέμβριος", "Δεκέμβριος"];
+  const monthName = lang === "el" ? EL_MONTHS[new Date().getMonth()] : new Date().toLocaleDateString("en-GB", { month: "long" });
 
   const openReq = (d.requests || []).filter((r) => r.status === "open");
   const reqItems = openReq.reduce((n, r) => n + r.items.filter((i) => i.status !== "done").length, 0);
@@ -110,7 +160,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <Setup biz={d.biz} mydata={d.mydata} invoices={d.invoices.length} expenses={d.expenses.length} suppliers={d.suppliers.length} />
+      <Onboarding onChanged={load} />
+      <AskBox />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Stat label={tr("Income (net)")} value={money(s.income.net)} sub={t("{x} collected", { x: money(s.income.collected) })} icon={TrendingUp} />

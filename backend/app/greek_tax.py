@@ -406,3 +406,128 @@ def parse_responses(xml_text: str) -> list:
         wrapper.append(resp)
         out.append(parse_response(ET.tostring(wrapper, encoding="unicode")))
     return out
+
+
+# ---------------------------------------------------------------- digital delivery notes (myDATA 9.3)
+
+# movePurpose codes (AADE table 8.21 "Σκοπός Διακίνησης")
+MOVE_PURPOSES = {
+    1: "Sale (Πώληση)",
+    2: "Sale on behalf of third parties (Πώληση για λογαριασμό τρίτων)",
+    3: "Sampling (Δειγματισμός)",
+    4: "Exhibition (Έκθεση)",
+    5: "Return (Επιστροφή)",
+    6: "Storage (Φύλαξη)",
+    7: "Processing / assembly (Επεξεργασία / Συναρμολόγηση)",
+    8: "Between own premises (Μεταξύ εγκαταστάσεων οντότητας)",
+    9: "Purchase (Αγορά)",
+    10: "Supply of ships and aircraft (Εφοδιασμός πλοίων και αεροσκαφών)",
+    11: "Free disposal (Δωρεάν διάθεση)",
+    12: "Warranty (Εγγύηση)",
+    13: "Loan (Χρησιδανεισμός)",
+    14: "Storage with third parties (Αποθήκευση σε τρίτους)",
+    15: "Return from storage (Επιστροφή από φύλαξη)",
+    16: "Recycling (Ανακύκλωση)",
+    17: "Destruction of unusable material (Καταστροφή άχρηστου υλικού)",
+    18: "Intra-community transfer of fixed assets (Διακίνηση παγίων - ενδοδιακίνηση)",
+    19: "Other (Λοιπές διακινήσεις)",
+}
+# measurementUnit codes
+UNITS = {1: "pcs", 2: "kg", 3: "lt", 4: "m", 5: "m²", 6: "m³", 7: "other"}
+OWN_PREMISES = 8
+
+
+def _addr_ok(a: dict) -> bool:
+    return bool((a or {}).get("street", "").strip() and (a or {}).get("city", "").strip() and (a or {}).get("postal_code", "").strip())
+
+
+def validate_delivery_note(note: dict, issuer: dict) -> list[str]:
+    errors: list[str] = []
+    if not is_valid_afm(issuer.get("vat_number", "")):
+        errors.append("Your business ΑΦΜ (in e-Invoicing settings) is missing or fails the checksum.")
+    purpose = int(note.get("move_purpose") or 0)
+    if purpose not in MOVE_PURPOSES:
+        errors.append("Choose why the goods are moving.")
+    if purpose == 19 and not (note.get("other_purpose") or "").strip():
+        errors.append("Describe the movement purpose.")
+    if purpose != OWN_PREMISES:
+        if not is_valid_afm(note.get("recipient_afm", "")):
+            errors.append("Recipient ΑΦΜ is missing or fails the checksum.")
+        elif normalize_afm(note["recipient_afm"]) == normalize_afm(issuer.get("vat_number", "")):
+            errors.append("For moves between your own premises choose that purpose instead of entering your own ΑΦΜ.")
+    if not _addr_ok(note.get("loading_address")):
+        errors.append("Loading address needs street, postcode and city.")
+    if not _addr_ok(note.get("delivery_address")):
+        errors.append("Delivery address needs street, postcode and city.")
+    if not note.get("dispatch_date"):
+        errors.append("Set the dispatch date.")
+    lines = note.get("items") or []
+    if not lines:
+        errors.append("Add at least one item being moved.")
+    if any(float(l.get("qty") or 0) <= 0 for l in lines):
+        errors.append("Every item needs a quantity above zero.")
+    return errors
+
+
+def _address(parent, tag, a: dict):
+    el = _sub(parent, tag)
+    _sub(el, "street", a.get("street", "").strip()[:150])
+    if (a.get("number") or "").strip():
+        _sub(el, "number", a["number"].strip()[:20])
+    _sub(el, "postalCode", a.get("postal_code", "").strip()[:10])
+    _sub(el, "city", a.get("city", "").strip()[:100])
+
+
+def build_delivery_note_doc(note: dict, issuer: dict, series: str, aa: str) -> str:
+    """InvoicesDoc for a stand-alone delivery note (type 9.3): quantities and addresses, no values."""
+    ET.register_namespace("", NS_INV)
+    root = ET.Element(f"{{{NS_INV}}}InvoicesDoc")
+    inv = _sub(root, "invoice")
+    iss = _sub(inv, "issuer")
+    _sub(iss, "vatNumber", normalize_afm(issuer["vat_number"]))
+    _sub(iss, "country", "GR")
+    _sub(iss, "branch", int(issuer.get("branch") or 0))
+    purpose = int(note["move_purpose"])
+    if purpose != OWN_PREMISES:
+        cp = _sub(inv, "counterpart")
+        _sub(cp, "vatNumber", normalize_afm(note["recipient_afm"]))
+        _sub(cp, "country", "GR")
+        _sub(cp, "branch", int(note.get("recipient_branch") or 0))
+
+    hdr = _sub(inv, "invoiceHeader")
+    _sub(hdr, "series", series)
+    _sub(hdr, "aa", aa)
+    _sub(hdr, "issueDate", note.get("issue_date") or note["dispatch_date"])
+    _sub(hdr, "invoiceType", "9.3")
+    _sub(hdr, "dispatchDate", note["dispatch_date"])
+    if note.get("dispatch_time"):
+        _sub(hdr, "dispatchTime", (note["dispatch_time"] + ":00")[:8])
+    if (note.get("vehicle_number") or "").strip():
+        _sub(hdr, "vehicleNumber", note["vehicle_number"].strip().upper()[:50])
+    _sub(hdr, "movePurpose", purpose)
+    other = _sub(hdr, "otherDeliveryNoteHeader")
+    _address(other, "loadingAddress", note["loading_address"])
+    _address(other, "deliveryAddress", note["delivery_address"])
+    _sub(other, "startShippingBranch", int(note.get("start_branch") or 0))
+    _sub(other, "completeShippingBranch", int(note.get("complete_branch") or 0))
+    _sub(hdr, "isDeliveryNote", "true")
+    if purpose == 19:
+        _sub(hdr, "otherMovePurposeTitle", note["other_purpose"].strip()[:150])
+
+    for idx, item in enumerate(note["items"], start=1):
+        det = _sub(inv, "invoiceDetails")
+        _sub(det, "lineNumber", idx)
+        _sub(det, "quantity", f"{float(item['qty']):.2f}")
+        _sub(det, "measurementUnit", int(item.get("unit") or 1))
+        if (item.get("code") or "").strip():
+            _sub(det, "itemCode", item["code"].strip()[:50])
+        _sub(det, "itemDescr", item["description"].strip()[:300])
+        _sub(det, "netValue", "0.00")
+        _sub(det, "vatCategory", 8)  # records without VAT
+        _sub(det, "vatAmount", "0.00")
+
+    summ = _sub(inv, "invoiceSummary")
+    for tag in ("totalNetValue", "totalVatAmount", "totalWithheldAmount", "totalFeesAmount", "totalStampDutyAmount",
+                "totalOtherTaxesAmount", "totalDeductionsAmount", "totalGrossValue"):
+        _sub(summ, tag, "0.00")
+    return '<?xml version="1.0" encoding="UTF-8"?>' + ET.tostring(root, encoding="unicode")

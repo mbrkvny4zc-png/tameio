@@ -175,3 +175,59 @@ async def suggest_categories(docs: list) -> dict:
         return {}
     valid = {d["id"] for d in docs}
     return {s["id"]: (s["category"], s["confidence"]) for s in data.get("suggestions", []) if s["id"] in valid}
+
+
+# ------------------------------------------------------------------ "Ask your numbers"
+
+ASK_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "answer": {"type": "string"},
+        "highlights": {"type": "array", "items": {"type": "object", "properties": {
+            "label": {"type": "string"}, "value": {"type": "string"}}, "required": ["label", "value"], "additionalProperties": False}},
+        "follow_ups": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["answer", "highlights", "follow_ups"], "additionalProperties": False,
+}
+
+ASK_SYSTEM = """You answer a Greek small-business owner's questions about their own bookkeeping data.
+Rules:
+- Use ONLY the JSON data provided. Never invent numbers. If the data can't answer the question, say what is missing.
+- Amounts are EUR. Write money like €1.234,56 when answering in Greek and €1,234.56 in English.
+- Answer in the same language as the question. Be short and plain: 1-4 sentences, no markdown headings, no tables.
+- "highlights": up to 4 key figures you used (label + formatted value). "follow_ups": up to 3 short next questions they might ask.
+- You are not their accountant: for tax-law questions give the figure from the data and suggest confirming with their accountant."""
+
+
+async def ask_numbers(question: str, data: dict, history: list) -> dict:
+    if not config.AI_SCAN_ENABLED:
+        raise ScanError("AI is turned off on this server.")
+    msgs = []
+    for h in history[-6:]:
+        if h.get("q") and h.get("a"):
+            msgs += [{"role": "user", "content": h["q"][:500]}, {"role": "assistant", "content": h["a"][:2000]}]
+    msgs.append({"role": "user", "content": f"<data>\n{json.dumps(data, ensure_ascii=False, default=str)}\n</data>\n\nQuestion: {question}"})
+    try:
+        client = anthropic.AsyncAnthropic(timeout=90.0, max_retries=2)
+        resp = await client.beta.messages.create(
+            model=config.ANTHROPIC_MODEL, max_tokens=4000, system=ASK_SYSTEM, messages=msgs,
+            output_config={"effort": "low", "format": {"type": "json_schema", "schema": ASK_SCHEMA}},
+            betas=["server-side-fallback-2026-07-01"], fallbacks="default")
+    except anthropic.AuthenticationError:
+        raise ScanError("AI isn't configured on the server (missing or invalid Anthropic API key).")
+    except (anthropic.RateLimitError, anthropic.APIConnectionError, anthropic.APIStatusError) as e:
+        log.warning("Ask failed: %s", e)
+        raise ScanError("The AI service is unavailable right now — try again shortly.")
+    except Exception as e:
+        if "api_key" in str(e).lower() or "auth" in str(e).lower():
+            raise ScanError("AI isn't configured on the server (missing Anthropic API key).")
+        raise
+    if resp.stop_reason == "refusal":
+        raise ScanError("I can't help with that question.")
+    if resp.stop_reason == "max_tokens":
+        raise ScanError("That question needs a longer answer than I can give — try narrowing it down.")
+    text = next((b.text for b in resp.content if b.type == "text"), "")
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        raise ScanError("The AI response was incomplete — please try again.")

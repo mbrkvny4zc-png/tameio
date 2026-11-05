@@ -1,12 +1,39 @@
+import { useEffect, useId, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { api } from "@/lib/api";
 import { Button, Input, Select, Field } from "@/components/ui";
 import { lineTotals, money, VAT_RATES } from "@/lib/format";
 import { translate as tr } from "@/lib/i18n";
 
 export const EMPTY_ITEM = { description: "", qty: 1, unit_price: "" };
 
+let productCache = null;
+/** Saved products & services, loaded once per page view and shared by every editor. */
+export function useProducts() {
+  const [list, setList] = useState(productCache || []);
+  useEffect(() => {
+    if (!productCache) api.get("/products").then((r) => { productCache = r; setList(r); }).catch(() => {});
+  }, []);
+  return list;
+}
+export const resetProducts = () => { productCache = null; };
+
 export function ItemsEditor({ items, onChange, taxRate, onTaxRate, currency = "EUR", taxOptions = VAT_RATES }) {
-  const set = (idx, k, v) => onChange(items.map((it, i) => (i === idx ? { ...it, [k]: v } : it)));
+  const products = useProducts();
+  const listId = useId();
+  const set = (idx, k, v) => onChange(items.map((it, i) => {
+    if (i !== idx) return it;
+    const next = { ...it, [k]: v };
+    if (k === "description") {
+      // Picking a saved product fills in its price.
+      const p = products.find((x) => x.name === v);
+      if (p) {
+        next.unit_price = p.unit_price;
+        api.post(`/products/${p.id}/used`).catch(() => {});
+      }
+    }
+    return next;
+  }));
   const t = lineTotals(items, taxRate);
   return (
     <div>
@@ -16,7 +43,7 @@ export function ItemsEditor({ items, onChange, taxRate, onTaxRate, currency = "E
       <div className="space-y-2">
         {items.map((it, i) => (
           <div key={i} className="grid grid-cols-[1fr_70px_96px_32px] sm:grid-cols-[1fr_80px_110px_100px_36px] gap-2 items-center" data-testid={`item-row-${i}`}>
-            <Input placeholder={tr("What did you sell?")} value={it.description} onChange={(e) => set(i, "description", e.target.value)} data-testid={`item-desc-${i}`} />
+            <Input placeholder={tr(products.length ? "Type or pick a saved product" : "What did you sell?")} value={it.description} onChange={(e) => set(i, "description", e.target.value)} data-testid={`item-desc-${i}`} list={products.length ? listId : undefined} />
             <Input type="number" inputMode="decimal" min="0" step="any" className="text-right num" value={it.qty} onChange={(e) => set(i, "qty", e.target.value)} aria-label={tr("Quantity")} />
             <Input type="number" inputMode="decimal" min="0" step="any" className="text-right num" placeholder="0.00" value={it.unit_price} onChange={(e) => set(i, "unit_price", e.target.value)} aria-label={tr("Unit price")} data-testid={`item-price-${i}`} />
             <span className="hidden sm:block text-right text-sm num text-muted">{money((parseFloat(it.qty) || 0) * (parseFloat(it.unit_price) || 0), currency)}</span>
@@ -27,6 +54,7 @@ export function ItemsEditor({ items, onChange, taxRate, onTaxRate, currency = "E
           </div>
         ))}
       </div>
+      {products.length > 0 && <datalist id={listId}>{products.map((p) => <option key={p.id} value={p.name}>{`€${p.unit_price}${p.code ? ` · ${p.code}` : ""}`}</option>)}</datalist>}
       <Button type="button" variant="ghost" size="sm" className="mt-2 -ml-2" onClick={() => onChange([...items, { ...EMPTY_ITEM }])}><Plus className="h-4 w-4" />{tr("Add line")}</Button>
       <div className="mt-4 flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-t border-line pt-4">
         <Field label={tr("VAT rate")} className="w-36">

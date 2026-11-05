@@ -134,7 +134,7 @@ async def attention(ctx: Ctx = Depends(get_ctx)):
     """Counts for the dashboard's 'needs you' list."""
     d = get_db()
     org = ctx.org_id
-    invoices = await d.invoices.find({"org_id": org}, {"_id": 0, "status": 1, "kind": 1, "mydata.state": 1}).to_list(50000)
+    invoices = await d.invoices.find({"org_id": org}, {"_id": 0, "status": 1, "kind": 1, "mydata.state": 1, "sample": 1, "imported": 1}).to_list(50000)
     from app.routers.suppliers import _requirements, compute_compliance
     reqs = await _requirements(org)
     sup = [compute_compliance(s, reqs) for s in await d.suppliers.find({"org_id": org, "status": {"$ne": "rejected"}}, {"_id": 0}).to_list(5000)]
@@ -142,7 +142,7 @@ async def attention(ctx: Ctx = Depends(get_ctx)):
         "overdue_invoices": sum(1 for i in invoices if i.get("status") == "overdue"),
         "draft_invoices": sum(1 for i in invoices if i.get("status") == "draft"),
         "mydata_unreported": sum(1 for i in invoices if i.get("status") in ("sent", "paid", "overdue", "credited")
-                                 and (i.get("mydata") or {}).get("state") not in ("transmitted", "cancelled")),
+                                 and not i.get("sample") and not i.get("imported") and (i.get("mydata") or {}).get("state") not in ("transmitted", "cancelled")),
         "quotes_open": await d.documents.count_documents({"org_id": org, "doc_type": "quote", "status": "sent"}),
         "suppliers_blocked": sum(1 for c in sup if c["verdict"] == "blocked"),
         "suppliers_expiring": sum(1 for c in sup if any(i["state"] == "expiring" for i in c["items"])),

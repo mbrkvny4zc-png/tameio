@@ -27,8 +27,9 @@ async def ensure_indexes():
     d = get_db()
     await d.users.create_index("email", unique=True)
     await d.sessions.create_index("token", unique=True)
-    for coll in ("clients", "documents", "invoices", "expenses", "suppliers", "scans"):
+    for coll in ("clients", "documents", "invoices", "expenses", "suppliers", "scans", "products", "delivery_notes"):
         await d[coll].create_index([("org_id", 1), ("created_at", -1)])
     await d.invoices.create_index("public_token", sparse=True)
     await d.documents.create_index("public_token", sparse=True)
     await d.suppliers.create_index("token", unique=True)
+    await d.afm_cache.create_index("afm", unique=True)

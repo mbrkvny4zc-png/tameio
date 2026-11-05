@@ -2,13 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import QRCode from "qrcode";
-import { Building2, Copy, CreditCard, Download, ImagePlus, KeyRound, Mail, RefreshCw, ShieldCheck, Sparkles, Tags, Trash2, Users, X } from "lucide-react";
+import { Building2, Copy, CreditCard, Download, FileSpreadsheet, Plug, ImagePlus, KeyRound, Mail, RefreshCw, ShieldCheck, Sparkles, Tags, Trash2, Users, X } from "lucide-react";
 import { api, download } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { VAT_RATES, date } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import { useOrg } from "@/lib/org";
 import { Badge, Button, Card, Field, IconBtn, Input, Modal, PageHeader, PageLoader, Select, Textarea, cx } from "@/components/ui";
+import { AfmInput, ImportDialog } from "@/components/Extras";
 
 function resizeLogo(file) {
   return new Promise((resolve, reject) => {
@@ -53,7 +54,8 @@ function BusinessTab() {
         </div>
         <div className="grid sm:grid-cols-2 gap-4">
           <Field label={t("Business name")} className="sm:col-span-2"><Input value={f.business_name} onChange={set("business_name")} data-testid="biz-name" /></Field>
-          <Field label={t("ΑΦΜ (tax number)")}><Input value={f.afm} onChange={set("afm")} placeholder={t("9 digits")} data-testid="biz-afm" /></Field>
+          <Field label={t("ΑΦΜ (tax number)")} hint={t("Type it and your details fill in from the registry.")}><AfmInput value={f.afm} onChange={(v) => setF((x) => ({ ...x, afm: v }))} data-testid="biz-afm"
+            onFound={(r) => setF((x) => ({ ...x, business_name: x.business_name || r.trade_name || r.name, address: x.address || r.address, city: x.city || r.city, postal_code: x.postal_code || r.postal_code, doy: x.doy || r.doy }))} /></Field>
           <Field label={t("ΔΟΥ (tax office)")}><Input value={f.doy} onChange={set("doy")} /></Field>
           <Field label={t("Email")}><Input type="email" value={f.business_email} onChange={set("business_email")} /></Field>
           <Field label={t("Phone")}><Input value={f.business_phone} onChange={set("business_phone")} /></Field>
@@ -74,6 +76,27 @@ function BusinessTab() {
       <div className="flex justify-end"><Button size="lg" loading={busy} data-testid="biz-save">{t("Save changes")}</Button></div>
     </form>
   );
+}
+
+function ImportCard() {
+  const { t } = useT();
+  const [kind, setKind] = useState(null);
+  return (
+    <Card className="p-5 sm:p-6 mt-6">
+      <div className="flex items-center gap-2"><FileSpreadsheet className="h-4 w-4 text-brand" /><p className="font-bold">{t("Bring your data")}</p></div>
+      <p className="text-sm text-muted mt-1 mb-4">{t("Switching from another program? Upload Excel or CSV exports — columns in Greek or English are recognised automatically.")}</p>
+      <div className="flex flex-wrap gap-2">
+        {[["clients", "Clients"], ["products", "Products & services"], ["invoices", "Past invoices"]].map(([k, l]) => (
+          <Button key={k} variant="secondary" onClick={() => setKind(k)} data-testid={`import-${k}`}>{t(l)}</Button>
+        ))}
+      </div>
+      <ImportDialog kind={kind || "clients"} open={!!kind} onClose={() => setKind(null)} />
+    </Card>
+  );
+}
+
+function Section({ title, children }) {
+  return <section className="space-y-4"><h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted pt-2">{title}</h2>{children}</section>;
 }
 
 function TeamTab() {
@@ -340,11 +363,13 @@ export default function Settings() {
   const { current } = useOrg();
   const [params, setParams] = useSearchParams();
   const practice = current?.kind === "practice";
+  // Four tabs instead of seven: related settings live together. Old links (?tab=plan etc.) still land in the right place.
   const tabs = practice
     ? [["business", t("Firm"), Building2], ["security", t("Security & data"), ShieldCheck]]
-    : [["business", t("Business"), Building2], ["team", t("Team"), Users], ["plan", t("Plan"), Sparkles], ["payments", t("Payments"), CreditCard],
-      ["inbox", t("Email inbox"), Mail], ["codes", t("Classification codes"), Tags], ["security", t("Security & data"), ShieldCheck]];
-  const tab = tabs.find(([k]) => k === params.get("tab"))?.[0] || "business";
+    : [["business", t("Business"), Building2], ["team", t("Team & plan"), Users], ["connections", t("Connections"), Plug], ["security", t("Security & data"), ShieldCheck]];
+  const ALIAS = { plan: "team", payments: "connections", inbox: "connections", codes: "connections" };
+  const asked = ALIAS[params.get("tab")] || params.get("tab");
+  const tab = tabs.find(([k]) => k === asked)?.[0] || "business";
   return (
     <div className="animate-in max-w-4xl">
       <PageHeader title={t("Settings")} subtitle={practice ? t("Your firm and account.") : t("Business details, team, payments and security.")} />
@@ -356,12 +381,15 @@ export default function Settings() {
           </button>
         ))}
       </div>
-      {tab === "business" && <BusinessTab />}
-      {tab === "team" && <TeamTab />}
-      {tab === "plan" && <PlanTab />}
-      {tab === "payments" && <PaymentsTab />}
-      {tab === "inbox" && <InboxTab />}
-      {tab === "codes" && <CodesTab />}
+      {tab === "business" && <><BusinessTab />{!practice && <ImportCard />}</>}
+      {tab === "team" && <div className="space-y-8"><Section title={t("Team")}><TeamTab /></Section><Section title={t("Plan")}><PlanTab /></Section></div>}
+      {tab === "connections" && (
+        <div className="space-y-8">
+          <Section title={t("Card payments")}><PaymentsTab /></Section>
+          <Section title={t("Receipts by email")}><InboxTab /></Section>
+          <Section title={t("myDATA classification codes")}><CodesTab /></Section>
+        </div>
+      )}
       {tab === "security" && <SecurityTab />}
     </div>
   );

@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import {
   LayoutDashboard, FileText, FileSignature, ClipboardList, Users, Receipt, ShoppingCart, Truck, BarChart3, Settings, ScanLine, Bell, LogOut,
   Menu, X, ShieldCheck, Inbox, Landmark, CalendarClock, Calculator, ChevronsUpDown, Check, Building2, ArrowLeft, Sparkles,
+  ChevronDown, MessageSquareText, Package, PackageCheck, Search,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -11,37 +12,82 @@ import { LangToggle, useT } from "@/lib/i18n";
 import { useOrg } from "@/lib/org";
 import { Logo } from "@/components/Logo";
 import { Button, Modal, cx } from "@/components/ui";
+import { CommandPalette, NewMenu } from "@/components/CommandPalette";
 
 function buildNav(t, { kind, isAccountant }) {
   if (kind === "practice") {
     return [
       { group: null, items: [{ to: "/app/practice", label: t("My clients"), icon: Calculator, end: true }] },
-      { group: null, items: [{ to: "/app/settings", label: t("Settings"), icon: Settings }] },
     ];
   }
+  // Each group shows its everyday pages; the rest sit behind "more" so the menu stays short.
   return [
     { group: null, items: [{ to: "/app", label: t("Dashboard"), icon: LayoutDashboard, end: true },
+      { to: "/app/ask", label: t("Ask Tameio"), icon: MessageSquareText },
       ...(isAccountant ? [{ to: "/app/practice", label: t("All clients"), icon: Calculator }] : [])] },
-    { group: t("Sales"), items: [
-      { to: "/app/invoices", label: t("Invoices"), icon: FileText },
-      { to: "/app/quotes", label: t("Quotes"), icon: FileSignature },
-      { to: "/app/sales-orders", label: t("Sales orders"), icon: ClipboardList },
+    { key: "sales", group: t("Sales"), items: [
+      { to: "/app/invoices", label: t("Invoices & receipts"), icon: FileText },
       { to: "/app/clients", label: t("Clients"), icon: Users },
+      { to: "/app/quotes", label: t("Quotes"), icon: FileSignature },
+    ], more: [
+      { to: "/app/products", label: t("Products & services"), icon: Package },
+      { to: "/app/delivery-notes", label: t("Delivery notes"), icon: PackageCheck },
+      { to: "/app/sales-orders", label: t("Sales orders"), icon: ClipboardList },
     ] },
-    { group: t("Spending"), items: [
+    { key: "purchases", group: t("Purchases"), items: [
       { to: "/app/expenses", label: t("Expenses"), icon: Receipt },
       { to: "/app/received", label: t("Purchase invoices"), icon: Inbox },
-      { to: "/app/purchase-orders", label: t("Purchase orders"), icon: ShoppingCart },
+    ], more: [
       { to: "/app/suppliers", label: t("Suppliers"), icon: Truck },
+      { to: "/app/purchase-orders", label: t("Purchase orders"), icon: ShoppingCart },
     ] },
-    { group: t("Money & tax"), items: [
+    { key: "money", group: t("Bank & tax"), items: [
       { to: "/app/bank", label: t("Bank"), icon: Landmark },
       { to: "/app/reports", label: t("Reports"), icon: BarChart3 },
-      { to: "/app/calendar", label: t("Tax calendar"), icon: CalendarClock },
       { to: "/app/mydata", label: "myDATA", icon: ShieldCheck },
-      { to: "/app/settings", label: t("Settings"), icon: Settings },
+    ], more: [
+      { to: "/app/calendar", label: t("Tax calendar"), icon: CalendarClock },
     ] },
   ];
+}
+
+const readOpen = () => { try { return JSON.parse(localStorage.getItem("tameio_nav_more") || "{}"); } catch { return {}; } };
+
+function NavItem({ to, label, icon: Icon, end }) {
+  return (
+    <NavLink to={to} end={end} className={({ isActive }) => cx("flex items-center gap-3 px-3 h-9 rounded-lg text-sm font-medium transition-colors",
+      isActive ? "bg-brand-soft text-brand" : "text-muted hover:text-ink hover:bg-surface-2")}>
+      <Icon className="h-[18px] w-[18px]" strokeWidth={1.9} />{label}
+    </NavLink>
+  );
+}
+
+function NavGroups({ nav }) {
+  const { t } = useT();
+  const loc = useLocation();
+  const [open, setOpen] = useState(readOpen);
+  const toggle = (k) => {
+    const next = { ...open, [k]: !open[k] };
+    setOpen(next);
+    try { localStorage.setItem("tameio_nav_more", JSON.stringify(next)); } catch { /* ignore */ }
+  };
+  return nav.map((g, gi) => {
+    const activeInMore = (g.more || []).some((i) => loc.pathname.startsWith(i.to));
+    const showMore = open[g.key] || activeInMore;
+    return (
+      <div key={gi} className="mb-4">
+        {g.group && <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted/80">{g.group}</p>}
+        {g.items.map((it) => <NavItem key={it.to} {...it} />)}
+        {showMore && g.more.map((it) => <NavItem key={it.to} {...it} />)}
+        {g.more?.length > 0 && !activeInMore && (
+          <button onClick={() => toggle(g.key)} className="flex items-center gap-3 px-3 h-8 w-full rounded-lg text-xs font-medium text-muted/80 hover:text-ink">
+            <ChevronDown className={cx("h-4 w-4 transition-transform", showMore && "rotate-180")} />
+            {showMore ? t("Show less") : t("{n} more", { n: g.more.length })}
+          </button>
+        )}
+      </div>
+    );
+  });
 }
 
 const ROLE = { owner: "Owner", admin: "Admin", staff: "Staff", accountant: "Accountant" };
@@ -168,21 +214,10 @@ export default function AppShell() {
           <Link to="/app/practice" className="flex items-center gap-2 text-xs font-semibold text-muted hover:text-ink px-1"><ArrowLeft className="h-3.5 w-3.5" />{t("Back to all clients")}</Link>
         )}
       </div>
-      <nav className="flex-1 overflow-y-auto px-3">
-        {nav.map((g, gi) => (
-          <div key={gi} className="mb-4">
-            {g.group && <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted/80">{g.group}</p>}
-            {g.items.map(({ to, label, icon: Icon, end }) => (
-              <NavLink key={to} to={to} end={end} className={({ isActive }) => cx("flex items-center gap-3 px-3 h-9 rounded-lg text-sm font-medium transition-colors",
-                isActive ? "bg-brand-soft text-brand" : "text-muted hover:text-ink hover:bg-surface-2")}>
-                <Icon className="h-[18px] w-[18px]" strokeWidth={1.9} />{label}
-              </NavLink>
-            ))}
-          </div>
-        ))}
-      </nav>
+      <nav className="flex-1 overflow-y-auto px-3"><NavGroups nav={nav} /></nav>
       <div className="p-3 border-t border-line">
-        <div className="flex items-center gap-3 px-2 py-2">
+        <NavItem to="/app/settings" label={t("Settings")} icon={Settings} />
+        <div className="flex items-center gap-3 px-2 py-2 mt-1">
           <div className="h-9 w-9 rounded-full bg-gradient-to-br from-brand to-violet text-white font-semibold text-sm flex items-center justify-center">{(user?.name || "?")[0]}</div>
           <div className="min-w-0 flex-1"><p className="text-sm font-semibold truncate">{user?.name}</p><p className="text-[11px] text-muted truncate">{user?.email}</p></div>
           <button onClick={logout} className="p-2 rounded-lg text-muted hover:text-ink hover:bg-surface-2" title={t("Sign out")} aria-label={t("Sign out")}><LogOut className="h-4 w-4" /></button>
@@ -212,7 +247,16 @@ export default function AppShell() {
           <button className="lg:hidden p-2 -ml-2 rounded-lg text-muted" onClick={() => setDrawer(true)} aria-label={t("Open menu")}><Menu className="h-5 w-5" /></button>
           <div className="lg:hidden"><Logo /></div>
           {current && kind !== "practice" && (orgs || []).length > 1 && <span className="hidden lg:inline text-sm text-muted">{current.name}</span>}
-          <div className="ml-auto flex items-center gap-1"><Notifications /></div>
+          {kind !== "practice" && (
+            <button onClick={() => window.dispatchEvent(new Event("tameio:palette"))} className="hidden sm:flex items-center gap-2 h-9 w-72 max-w-[40vw] rounded-xl border border-line bg-surface px-3 text-sm text-muted hover:border-ink/20" data-testid="open-palette">
+              <Search className="h-4 w-4" /><span className="flex-1 text-left">{t("Search or jump to…")}</span><kbd className="text-[10px] font-semibold border border-line rounded px-1.5 py-0.5">Ctrl K</kbd>
+            </button>
+          )}
+          <div className="ml-auto flex items-center gap-1">
+            {kind !== "practice" && <button onClick={() => window.dispatchEvent(new Event("tameio:palette"))} className="sm:hidden p-2 rounded-xl text-muted hover:text-ink" aria-label={t("Search")}><Search className="h-5 w-5" /></button>}
+            <Notifications />
+            {kind !== "practice" && <NewMenu />}
+          </div>
         </header>
         <main className="px-4 sm:px-6 lg:px-10 py-6 sm:py-8 pb-28 lg:pb-12 max-w-[1400px]"><Outlet /></main>
       </div>
@@ -227,6 +271,7 @@ export default function AppShell() {
         </div>
       </nav>
       <UpgradeDialog />
+      {kind !== "practice" && <CommandPalette nav={nav} />}
     </div>
   );
 }

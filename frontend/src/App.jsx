@@ -23,6 +23,10 @@ const Received = lazy(() => import("@/pages/app/Received"));
 const Bank = lazy(() => import("@/pages/app/Bank"));
 const Calendar = lazy(() => import("@/pages/app/Calendar"));
 const Requests = lazy(() => import("@/pages/app/Requests"));
+const Ask = lazy(() => import("@/pages/app/Ask"));
+const Products = lazy(() => import("@/pages/app/Products"));
+const DeliveryNotes = lazy(() => import("@/pages/app/DeliveryNotes"));
+const PublicDeliveryNote = lazy(() => import("@/pages/public/PublicDeliveryNote"));
 const Privacy = lazy(() => import("@/pages/Privacy"));
 const PaidReturn = lazy(() => import("@/pages/public/PaidReturn"));
 const PublicInvoice = lazy(() => import("@/pages/public/PublicInvoice"));
@@ -55,6 +59,7 @@ export default function App() {
         <Route path="/i/:token" element={<PublicInvoice />} />
         <Route path="/q/:token" element={<PublicQuote />} />
         <Route path="/s/:token" element={<SupplierPortal />} />
+        <Route path="/d/:token" element={<PublicDeliveryNote />} />
         <Route path="/app" element={<RequireAuth><AppShell /></RequireAuth>}>
           <Route index element={<Home />} />
           <Route path="practice" element={<Practice />} />
@@ -62,6 +67,9 @@ export default function App() {
           <Route path="bank" element={<Bank />} />
           <Route path="calendar" element={<Calendar />} />
           <Route path="requests" element={<Requests />} />
+          <Route path="ask" element={<Ask />} />
+          <Route path="products" element={<Products />} />
+          <Route path="delivery-notes" element={<DeliveryNotes />} />
           <Route path="invoices" element={<Invoices />} />
           <Route path="quotes" element={<Documents key="quote" type="quote" />} />
           <Route path="sales-orders" element={<Documents key="sales_order" type="sales_order" />} />

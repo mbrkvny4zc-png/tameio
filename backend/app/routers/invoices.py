@@ -204,6 +204,74 @@ async def public_invoice(token: str, request: Request):
                                                      "website", "logo", "iban", "payment_instructions")}}
 
 
+@router.post("/invoices/{invoice_id}/duplicate")
+async def duplicate_invoice(invoice_id: str, ctx: Ctx = Depends(get_ctx)):
+    """A fresh draft with the same client, lines and VAT — dated today, new number, nothing reported yet."""
+    await enforce(ctx.org_id, "invoices_month")
+    src = await _get(ctx.org_id, invoice_id)
+    if src.get("kind") == "credit_note":
+        raise HTTPException(status_code=400, detail="Credit notes can't be duplicated")
+    is_receipt = src.get("kind") == "receipt"
+    keep = ("client_id", "items", "tax_rate", "subtotal", "tax", "total", "notes", "currency") + CLIENT_FIELDS
+    doc = {"id": str(uuid.uuid4()), "org_id": ctx.org_id, "kind": src.get("kind") or "invoice",
+           "number": await next_number(ctx.org_id, "receipt" if is_receipt else "invoice", "REC" if is_receipt else "INV"),
+           **{k: src.get(k) for k in keep}, "status": "draft", "issue_date": today(), "due_date": None, "recurring": "none",
+           "next_recurring_at": None, "duplicated_from": src["id"], "created_by": ctx.user_id, "created_at": now(), "updated_at": now()}
+    await get_db().invoices.insert_one({**doc})
+    return doc
+
+
+# ------------------------------------------------------------------ retail receipts (myDATA 11.1 / 11.2)
+
+RETAIL_CUSTOMER = "Retail customer"
+
+
+class ReceiptInput(BaseModel):
+    items: List[Item]
+    tax_rate: float = 24
+    kind: str = "goods"          # goods -> 11.1 ΑΛΠ, services -> 11.2 ΑΠΥ
+    payment: str = "card"        # cash | card
+    customer_email: Optional[str] = ""
+    send_to_mydata: bool = True
+
+
+@router.post("/receipts")
+async def create_receipt(data: ReceiptInput, ctx: Ctx = Depends(get_ctx)):
+    """Counter sale in one step: number it, mark it paid, report it to myDATA (when set up) and optionally email it."""
+    await enforce(ctx.org_id, "invoices_month")
+    items = clean_items(data.items)
+    if not items or any(i["qty"] <= 0 or i["unit_price"] <= 0 for i in items):
+        raise HTTPException(status_code=400, detail="Add at least one item with a price")
+    if data.tax_rate not in gt.VAT_CATEGORIES:
+        raise HTTPException(status_code=400, detail="Choose a Greek VAT rate")
+    net, vat, total = totals(items, data.tax_rate)
+    itype = "11.2" if data.kind == "services" else "11.1"
+    pm = 3 if data.payment == "cash" else 7
+    doc = {"id": str(uuid.uuid4()), "org_id": ctx.org_id, "kind": "receipt", "number": await next_number(ctx.org_id, "receipt", "REC"),
+           "client_id": None, "client_name": RETAIL_CUSTOMER, "client_company": "", "client_email": (data.customer_email or "").strip()[:200],
+           "client_afm": "", "client_country": "GR", "client_address": "", "client_city": "", "client_postal_code": "",
+           "items": items, "tax_rate": data.tax_rate, "subtotal": net, "tax": vat, "total": total, "notes": "", "currency": "EUR",
+           "issue_date": today(), "due_date": None, "recurring": "none", "next_recurring_at": None, "status": "paid", "paid_at": now(),
+           "payment": "cash" if data.payment == "cash" else "card", "mydata": {"invoice_type": itype, "payment_method": pm},
+           "created_by": ctx.user_id, "created_at": now(), "updated_at": now()}
+    await get_db().invoices.insert_one({**doc})
+    out = {"receipt": doc, "mydata": None, "mydata_error": None}
+    if data.send_to_mydata:
+        from app.routers import mydata as md_router  # local import: mydata imports this module
+        settings = await md_router._settings(ctx.org_id)
+        if settings.get("vat_number"):
+            try:
+                out["receipt"] = await md_router.submit(doc["id"], md_router.MyDataInput(invoice_type=itype, payment_method=pm), ctx)
+                out["mydata"] = (out["receipt"].get("mydata") or {}).get("mark")
+            except HTTPException as e:
+                det = e.detail
+                out["mydata_error"] = det.get("message") if isinstance(det, dict) else str(det)
+                out["receipt"] = await _get(ctx.org_id, doc["id"])
+        else:
+            out["mydata_error"] = "Set up e-Invoicing to report receipts to myDATA"
+    return out
+
+
 # ------------------------------------------------------------------ credit notes (myDATA 5.1)
 
 class CreditNoteInput(BaseModel):

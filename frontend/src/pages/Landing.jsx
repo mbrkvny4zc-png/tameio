@@ -1,13 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  ArrowRight, Check, ScanLine, ShieldCheck, Truck, FileSignature, ClipboardList, RotateCcw, BarChart3, Download, Link2,
-  Languages, BellRing, Sparkles, ChevronDown, Menu, X, Camera, FileCheck2, Wallet, Inbox, Landmark, CreditCard, CalendarClock, Mail,
-  Calculator, CheckCircle2, Lock,
-} from "lucide-react";
-import { Logo, APP_NAME } from "@/components/Logo";
+import { ArrowRight, ArrowUpRight, Check, Menu, Minus, Plus, X } from "lucide-react";
+import { LogoMark, APP_NAME } from "@/components/Logo";
 import { useAuth } from "@/lib/auth";
-import { LangToggle, translate as tr } from "@/lib/i18n";
+import { getLang, LangToggle, translate as tr } from "@/lib/i18n";
 
 // Placeholder pricing — set real prices before launch.
 const PLANS = [
@@ -19,42 +15,61 @@ const PLANS = [
 
 const FAQ = [
   ["Does it send my invoices to myDATA?", "Yes. Every invoice is checked against AADE's rules before sending (ΑΦΜ checksum, VAT rates, document type), then transmitted with your own myDATA API credentials. You get the ΜΑΡΚ, and the QR code is printed on the invoice. There's a simulation mode so you can try everything first."],
+  ["Can I issue retail receipts and delivery notes?", "Yes. Counter sales become a receipt (ΑΛΠ / ΑΠΥ) in two taps and are reported to myDATA straight away. Digital delivery notes get their ΜΑΡΚ and a QR code that travels with the goods."],
   ["How does receipt scanning work?", "Take a photo or upload a PDF. AI reads the vendor, ΑΦΜ, date, net, VAT and total, suggests a category, and spots possible duplicates. Nothing is saved until you review it — and it warns you when the numbers don't add up."],
-  ["Can I fix an invoice after it's reported?", "Reported invoices are locked, as the law expects. You correct them with a credit note linked to the original ΜΑΡΚ, or cancel them — both are built in."],
-  ["What do suppliers have to do?", "Nothing complicated: you send a private link, they fill in their details and upload their tax and social security clearances, ΓΕΜΗ certificate and contract — in Greek or English, no account needed. You get reminders before anything expires."],
-  ["Do I still need an accountant?", `Probably — and they'll love it. Invite them for free: they see your books live, classify purchase invoices for myDATA, ask for missing receipts and download a monthly pack.`],
+  ["What can I ask Tameio?", "Anything about your own books, in plain Greek or English: “how much did I spend on fuel this quarter?”, “who owes me money?”, “was October better than September?”. Answers come only from your data — it never guesses figures."],
+  ["I'm switching from another program. Can I bring my data?", "Yes. Upload an Excel or CSV export of your clients, products and past invoices. Columns are recognised automatically, in Greek or English, and you see a preview before anything is saved."],
+  ["Do I still need an accountant?", "Probably — and they'll love it. Invite them for free: they see your books live, classify purchase invoices for myDATA, ask for missing receipts and download a monthly pack."],
   ["I'm an accountant. What does it cost?", "Nothing. Accountant accounts are free, with every client on one screen. Your clients pay for their own plan — and the free plan is enough for many micro-businesses."],
-  ["Does it connect to my bank?", "Import your statement as CSV from any Greek bank's e-banking. Payments are matched to invoices and expenses automatically, and outgoing payments without a receipt are flagged."],
   ["Can clients pay by card?", "Yes, with Viva Wallet. Connect your Viva account and invoices get a “Pay by card” button; paid invoices mark themselves as paid."],
 ];
+
+/* Photos live in /public/photos. Until a file is there, a warm, grainy plate stands in so the layout never breaks. */
+function Photo({ src, alt, caption, className = "", imgClass = "", priority }) {
+  const [ok, setOk] = useState(true);
+  return (
+    <figure className={`relative ${className}`}>
+      <div className={`photo grain relative overflow-hidden bg-[#d9c7a7] ${imgClass}`}>
+        {ok ? <img src={src} alt={alt} loading={priority ? "eager" : "lazy"} decoding="async" onError={() => setOk(false)} className="h-full w-full object-cover" />
+          : <div className="h-full w-full bg-[radial-gradient(120%_90%_at_30%_20%,#ecdcbc,#c9a97b_55%,#8a6a45)]" role="img" aria-label={alt} />}
+      </div>
+      {caption && <figcaption className="mt-2.5 text-[12px] tracking-wide text-[var(--p-muted)] font-mono">{caption}</figcaption>}
+    </figure>
+  );
+}
 
 function Nav() {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
-  const links = [["#features", "Features"], ["#accountants", "For accountants"], ["#pricing", "Pricing"], ["#faq", "FAQ"]];
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const h = () => setScrolled(window.scrollY > 8);
+    h(); window.addEventListener("scroll", h, { passive: true }); return () => window.removeEventListener("scroll", h);
+  }, []);
+  const links = [["#product", "Product"], ["#ask", "Ask Tameio"], ["#accountants", "For accountants"], ["#pricing", "Pricing"]];
   return (
-    <header className="sticky top-0 z-30 bg-bg/75 backdrop-blur-xl border-b border-line/60">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-6">
-        <Link to="/"><Logo /></Link>
-        <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted">
-          {links.map(([h, l]) => <a key={h} href={h} className="hover:text-ink transition-colors">{tr(l)}</a>)}
+    <header className={`sticky top-0 z-30 transition-colors ${scrolled ? "bg-[var(--p-bg)]/90 backdrop-blur-md border-b border-[var(--p-line)]" : "bg-transparent"}`}>
+      <div className="max-w-[1200px] mx-auto px-5 sm:px-8 h-16 flex items-center gap-8">
+        <Link to="/" className="flex items-center gap-2"><LogoMark className="h-7 w-7" /><span className="font-serif text-[22px] tracking-tight">{APP_NAME}</span></Link>
+        <nav className="hidden md:flex items-center gap-7 text-[14px] text-[var(--p-muted)]">
+          {links.map(([h, l]) => <a key={h} href={h} className="hover:text-[var(--p-ink)] transition-colors">{tr(l)}</a>)}
         </nav>
-        <div className="ml-auto hidden sm:flex items-center gap-2">
-          <LangToggle className="mr-1" />
-          {user ? <Link to="/app" className="h-10 px-4 inline-flex items-center rounded-xl bg-brand text-white text-sm font-semibold">{tr("Open app")}</Link> : <>
-            <Link to="/login" className="h-10 px-4 inline-flex items-center rounded-xl text-sm font-semibold text-ink hover:bg-surface-2">{tr("Sign in")}</Link>
-            <Link to="/signup" className="h-10 px-4 inline-flex items-center gap-1.5 rounded-xl bg-ink text-bg text-sm font-semibold hover:opacity-90" data-testid="nav-signup">{tr("Start free")} <ArrowRight className="h-4 w-4" /></Link>
+        <div className="ml-auto hidden sm:flex items-center gap-3">
+          <LangToggle />
+          {user ? <Link to="/app" className="btn-ink">{tr("Open app")}</Link> : <>
+            <Link to="/login" className="text-[14px] px-2 hover:underline underline-offset-4">{tr("Sign in")}</Link>
+            <Link to="/signup" className="btn-ink" data-testid="nav-signup">{tr("Try Tameio free")}</Link>
           </>}
         </div>
         <LangToggle className="sm:hidden ml-auto" />
-        <button className="sm:hidden p-2 -mr-2 text-muted" onClick={() => setOpen(!open)} aria-label={tr("Menu")}>{open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
+        <button className="sm:hidden p-2 -mr-2" onClick={() => setOpen(!open)} aria-label={tr("Menu")}>{open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
       </div>
       {open && (
-        <div className="sm:hidden border-t border-line bg-surface px-4 py-3 space-y-1">
-          {links.map(([h, l]) => <a key={h} href={h} onClick={() => setOpen(false)} className="block py-2 text-sm font-medium">{tr(l)}</a>)}
+        <div className="sm:hidden border-t border-[var(--p-line)] bg-[var(--p-bg)] px-5 py-3 space-y-1">
+          {links.map(([h, l]) => <a key={h} href={h} onClick={() => setOpen(false)} className="block py-2 text-[15px]">{tr(l)}</a>)}
           <div className="flex gap-2 pt-2">
-            <Link to="/login" className="flex-1 h-10 inline-flex items-center justify-center rounded-xl border border-line text-sm font-semibold">{tr("Sign in")}</Link>
-            <Link to="/signup" className="flex-1 h-10 inline-flex items-center justify-center rounded-xl bg-brand text-white text-sm font-semibold">{tr("Start free")}</Link>
+            <Link to="/login" className="btn-line flex-1 justify-center">{tr("Sign in")}</Link>
+            <Link to="/signup" className="btn-ink flex-1 justify-center">{tr("Try Tameio free")}</Link>
           </div>
         </div>
       )}
@@ -62,272 +77,276 @@ function Nav() {
   );
 }
 
-/* ---------- product visuals (HTML, so they stay crisp at any resolution) ---------- */
-
-function HeroVisual() {
-  const bars = [38, 52, 45, 61, 58, 74, 69, 83];
+/* A small scanned-receipt card that floats over the hero photo. */
+function ReceiptCard() {
   return (
-    <div className="relative mx-auto max-w-[560px] lg:max-w-none">
-      <div className="absolute -inset-10 bg-[radial-gradient(closest-side,hsl(var(--brand)/0.22),transparent)] blur-2xl" aria-hidden />
-      <div className="relative card shadow-lift rounded-3xl p-5 sm:p-6">
-        <div className="flex items-center justify-between">
-          <div><p className="text-xs text-muted font-medium">{tr("Profit · October")}</p><p className="num text-3xl font-bold tracking-tight mt-1">€6.240,50</p></div>
-          <span className="chip bg-success/10 text-success">{tr("+18% vs Sep")}</span>
-        </div>
-        <div className="mt-5 flex items-end gap-2 h-24">
-          {bars.map((h, i) => (
-            <div key={i} className="flex-1 h-full flex flex-col justify-end gap-1">
-              <div className="rounded-md bg-brand/90" style={{ height: `${h}%` }} />
-              <div className="rounded-md bg-danger/25" style={{ height: `${h * 0.42}%` }} />
-            </div>
-          ))}
-        </div>
-        <div className="mt-5 grid grid-cols-3 gap-3 text-center">
-          {[["Income", "€9.870", "text-ink"], ["Expenses", "€3.629", "text-ink"], ["VAT due", "€1.497", "text-warn"]].map(([l, v, c]) => (
-            <div key={l} className="rounded-xl bg-surface-2 py-2.5"><p className="text-[11px] text-muted">{tr(l)}</p><p className={`num font-bold ${c}`}>{v}</p></div>
-          ))}
-        </div>
+    <div className="w-[250px] shrink-0 rounded-[14px] bg-[#fffdf8] text-[#1f1a14] shadow-[0_24px_60px_-20px_rgb(40_28_10/0.45)] p-4 rotate-[-2deg] border border-[#eadfca]">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] uppercase tracking-[0.16em] text-[#6b6257]">{tr("Read by AI")}</span>
+        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#e6eedb] text-[#3f5a24] font-semibold">{tr("Ready to save")}</span>
       </div>
-      {/* floating receipt scan card */}
-      <div className="absolute -left-4 sm:-left-12 -bottom-40 w-[230px] card shadow-lift rounded-2xl p-3.5 rotate-[-3deg] hidden sm:block">
-        <div className="flex items-center gap-2 text-xs font-semibold"><span className="h-6 w-6 rounded-lg bg-brand-soft text-brand flex items-center justify-center"><Sparkles className="h-3.5 w-3.5" /></span>{tr("Receipt read")}</div>
-        <div className="mt-2.5 space-y-1.5 text-[11px]">
-          {[["Vendor", "Shell Kifisias"], ["Category", "Fuel & vehicle"], ["VAT 24%", "€12,00"], ["Total", "€62,00"]].map(([k, v]) => (
-            <div key={k} className="flex justify-between"><span className="text-muted">{tr(k)}</span><span className="font-semibold num">{tr(v)}</span></div>
-          ))}
-        </div>
-      </div>
-      {/* floating myDATA card */}
-      <div className="absolute -right-3 sm:-right-8 -top-8 card shadow-lift rounded-2xl px-3.5 py-2.5 rotate-[2deg] hidden sm:flex items-center gap-2.5">
-        <span className="h-8 w-8 rounded-xl bg-success/10 text-success flex items-center justify-center"><ShieldCheck className="h-4 w-4" /></span>
-        <div><p className="text-xs font-semibold">{tr("INV-0142 reported")}</p><p className="text-[10px] text-muted num">ΜΑΡΚ 400001927364551</p></div>
+      <p className="font-serif text-[19px] mt-2 leading-tight">Αλευρόμυλοι Αττικής</p>
+      <dl className="mt-3 space-y-1.5 text-[12px]">
+        {[["ΑΦΜ", "094019245"], [tr("Net"), "€182,26"], [tr("VAT 13%"), "€23,69"], [tr("Category"), tr("Goods & materials")]].map(([k, v]) => (
+          <div key={k} className="flex justify-between gap-3"><dt className="text-[#6b6257]">{k}</dt><dd className="font-semibold tabular-nums text-right">{v}</dd></div>
+        ))}
+      </dl>
+      <div className="mt-3 pt-3 border-t border-dashed border-[#e2d6bf] flex justify-between items-baseline">
+        <span className="text-[12px] text-[#6b6257]">{tr("Total")}</span><span className="font-serif text-[22px] tabular-nums">€205,95</span>
       </div>
     </div>
   );
 }
 
-function PillarVisual({ kind }) {
-  if (kind === "invoice") return (
-    <div className="card p-4 rounded-2xl space-y-2.5">
-      {[["INV-0142", "Kafeneio Plaka", "€849,40", "ΜΑΡΚ ✓", "success"], ["INV-0141", "Stavrou Bakery", "€572,88", "ΜΑΡΚ ✓", "success"], ["CN-0003", "→ INV-0139", "−€55,80", "Credit", "violet"]].map(([n, c, a, s, t]) => (
-        <div key={n} className="flex items-center gap-3 text-xs">
-          <span className="font-semibold w-16">{n}</span><span className="text-muted flex-1 truncate">{c}</span><span className="num font-semibold">{a}</span>
-          <span className={`chip ${t === "success" ? "bg-success/10 text-success" : "bg-violet/10 text-violet"}`}>{s}</span>
-        </div>
-      ))}
+function MarkCard() {
+  return (
+    <div className="w-[230px] shrink-0 rounded-[14px] bg-[#1f1a14] text-[#f6f1e7] shadow-[0_24px_60px_-20px_rgb(20_14_6/0.6)] p-4 rotate-[1.5deg]">
+      <p className="text-[10px] uppercase tracking-[0.16em] text-[#bfb29c]">myDATA · ΑΑΔΕ</p>
+      <p className="mt-2 text-[13px]">{tr("Receipt")} REC-0412 · €4,80</p>
+      <p className="mt-1 font-mono text-[12px] text-[#e9c99a]">ΜΑΡΚ 400001284719356</p>
+      <p className="mt-2 flex items-center gap-1.5 text-[12px] text-[#b8d4a0]"><Check className="h-3.5 w-3.5" />{tr("Reported in 1.2 seconds")}</p>
     </div>
   );
-  if (kind === "scan") return (
-    <div className="flex items-center gap-3">
-      <div className="w-24 shrink-0 h-32 rounded-xl bg-[repeating-linear-gradient(0deg,hsl(var(--line)),hsl(var(--line))_1px,transparent_1px,transparent_9px)] bg-surface border border-line relative overflow-hidden">
-        <div className="absolute inset-x-0 top-1/3 h-0.5 bg-brand shadow-[0_0_12px_hsl(var(--brand))]" />
+}
+
+const STORIES = [
+  { img: "/photos/kafeneio.jpg", tag: "Receipts", title: "The shoebox, retired.", text: "Snap every supplier receipt at the counter. AI reads the ΑΦΜ, VAT and total, files it under the right category and flags duplicates." },
+  { img: "/photos/carpenter.jpg", tag: "Invoices", title: "Invoice from the workshop.", text: "Pick the client, pick the saved product, send. It's reported to myDATA with its ΜΑΡΚ and QR before the sawdust settles." },
+  { img: "/photos/florist.jpg", tag: "Getting paid", title: "Paid before you close up.", text: "Every invoice carries a “Pay by card” link. Reminders go out on their own, and paid invoices mark themselves as paid." },
+  { img: "/photos/mechanic.jpg", tag: "Delivery notes", title: "Parts out the door, paperwork done.", text: "Digital delivery notes with ΜΑΡΚ and QR, filled in from the invoice in one tap. The driver carries the QR; you carry on." },
+];
+
+const FEATURES = [
+  ["Invoices, receipts & credit notes", "Every Greek document type, checked against AADE's rules and reported to myDATA."],
+  ["ΑΦΜ auto-fill", "Type the ΑΦΜ; name, address and tax office fill themselves in."],
+  ["Purchase invoices from myDATA", "What suppliers report about you arrives on its own, classified by AI."],
+  ["Bank matching", "Import a statement from any Greek bank; payments match to invoices and receipts."],
+  ["Quotes, orders, delivery notes", "From quote to invoice to delivery note without retyping a line."],
+  ["Supplier compliance", "Tax and social-security clearances collected, with reminders before they expire."],
+  ["Tax calendar", "VAT, payroll and ΕΝΦΙΑ deadlines with an estimate of what you'll owe."],
+  ["Bring your data", "Clients, products and past invoices from Excel or CSV, in minutes."],
+];
+
+const ASK = [
+  { q: "How much did I spend on fuel this quarter?", a: "€412,60 across 9 receipts — about 18% more than last quarter, mostly in October.", h: [["Fuel · Q4", "€412,60"], ["Q3", "€349,10"]] },
+  { q: "Who owes me money right now?", a: "Three clients owe €2.184,00 in total. Studio Λευκό's invoice is 12 days overdue — it might be worth a reminder.", h: [["Unpaid", "€2.184,00"], ["Overdue", "€620,00"]] },
+  { q: "Was October better than September?", a: "Yes. Profit was €6.240,50 in October against €5.288,90 in September, mainly from two larger design jobs.", h: [["October", "€6.240,50"], ["September", "€5.288,90"]] },
+];
+
+function AskDemo() {
+  const [i, setI] = useState(0);
+  const [typed, setTyped] = useState("");
+  const item = ASK[i];
+  const answer = tr(item.a);
+  useEffect(() => {
+    setTyped("");
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) { setTyped(answer); return undefined; }
+    let n = 0;
+    const id = setInterval(() => { n += 3; setTyped(answer.slice(0, n)); if (n >= answer.length) clearInterval(id); }, 18);
+    return () => clearInterval(id);
+  }, [i, answer]);
+  return (
+    <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-10 lg:gap-16 items-start">
+      <div>
+        <p className="eyebrow">{tr("Ask Tameio")}</p>
+        <h2 className="h-section mt-4">{tr("Ask your books a question. Get a straight answer.")}</h2>
+        <p className="lede mt-5">{tr("No reports to build, no spreadsheets. Ask in Greek or English — answers come only from your own invoices, receipts and bank, never from guesswork.")}</p>
+        <div className="mt-8 space-y-2.5">
+          {ASK.map((x, n) => (
+            <button key={x.q} onClick={() => setI(n)} className={`w-full text-left px-4 py-3 rounded-xl border transition-colors text-[15px] ${n === i ? "border-[var(--p-ink)] bg-[var(--p-card)]" : "border-[var(--p-line)] hover:border-[var(--p-ink)]/40"}`} data-testid={`ask-demo-${n}`}>
+              “{tr(x.q)}”
+            </button>
+          ))}
+        </div>
+        <p className="mt-3 text-[12px] text-[var(--p-muted)]">{tr("Example answers from a sample business.")}</p>
       </div>
-      <ArrowRight className="h-4 w-4 text-muted shrink-0" />
-      <div className="card p-3 rounded-xl flex-1 space-y-1.5 text-[11px]">
-        {[["ΑΦΜ", "094019245"], ["Net", "€50,00"], ["ΦΠΑ", "€12,00"], ["Category", "Fuel"]].map(([k, v]) => <div key={k} className="flex justify-between"><span className="text-muted">{tr(k)}</span><span className="font-semibold num">{tr(v)}</span></div>)}
+      <div className="rounded-[22px] bg-[var(--p-card)] border border-[var(--p-line)] shadow-[0_30px_80px_-40px_rgb(40_28_10/0.35)] p-5 sm:p-7 min-h-[360px]">
+        <div className="flex items-center gap-2 text-[12px] text-[var(--p-muted)]"><span className="h-2 w-2 rounded-full bg-[var(--p-accent)]" />{tr("Ask Tameio")}</div>
+        <div className="mt-5 flex justify-end"><p className="max-w-[85%] rounded-2xl rounded-br-md bg-[var(--p-ink)] text-[var(--p-bg)] px-4 py-2.5 text-[15px]">{tr(item.q)}</p></div>
+        <div className="mt-4 max-w-[92%]">
+          <p className="font-serif text-[21px] leading-snug min-h-[96px]">{typed}<span className="inline-block w-[2px] h-[1em] align-[-2px] bg-[var(--p-accent)] ml-0.5 animate-pulse" /></p>
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            {item.h.map(([l, v]) => (
+              <div key={l} className="rounded-xl bg-[var(--p-bg)] border border-[var(--p-line)] px-4 py-3">
+                <p className="text-[11px] uppercase tracking-[0.12em] text-[var(--p-muted)]">{tr(l)}</p><p className="font-serif text-[24px] tabular-nums mt-1">{v}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
-    </div>); return (<div className="card p-4 rounded-2xl space-y-2">
-      {[["Φορολογική ενημερότητα", "6 days left", "warn"], ["Ασφαλιστική ενημερότητα", "Valid", "success"], ["ΓΕΜΗ", "Valid", "success"], ["Supplier agreement", "Awaiting review", "brand"]].map(([d, s, t]) => (
-        <div key={d} className="flex items-center justify-between text-xs gap-2"><span className="truncate">{tr(d)}</span>
-          <span className={`chip ${{ warn: "bg-warn/10 text-warn", success: "bg-success/10 text-success", brand: "bg-brand-soft text-brand" }[t]}`}>{s}</span></div>
-      ))}
     </div>
   );
 }
 
 export default function Landing() {
   const [faq, setFaq] = useState(0);
+  const el = getLang() === "el";
   return (
-    <div className="min-h-screen bg-bg overflow-x-hidden">
+    <div className="paper min-h-screen overflow-x-hidden">
       <Nav />
 
       {/* Hero */}
-      <section className="relative">
-        <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_bottom,hsl(var(--brand-soft)),hsl(var(--bg))_70%)]" aria-hidden />
-        <div className="absolute inset-0 -z-10 opacity-[0.35] [background-image:radial-gradient(hsl(var(--line))_1px,transparent_1px)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_75%)]" aria-hidden />
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-14 sm:pt-20 pb-24 grid lg:grid-cols-[1.05fr_1fr] gap-14 lg:gap-10 items-center">
-          <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold text-muted shadow-card">
-              <span className="h-1.5 w-1.5 rounded-full bg-success" />{tr("Built for AADE myDATA · Ελληνικά & English")}</span>
-            <h1 className="mt-6 text-[40px] leading-[1.05] sm:text-6xl font-extrabold">{tr("Invoices, receipts and suppliers —")} <span className="bg-gradient-to-r from-brand to-violet bg-clip-text text-transparent">{tr("sorted.")}</span>
-            </h1>
-            <p className="mt-5 text-lg text-muted max-w-xl leading-relaxed">{tr("Send myDATA-ready invoices, snap a receipt and let AI file it, and keep every supplier's paperwork current. One simple app for Greek freelancers, shops and trades.")}</p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link to="/signup" className="h-12 px-6 inline-flex items-center gap-2 rounded-xl bg-brand text-white font-semibold shadow-[0_12px_28px_-12px_hsl(var(--brand))] hover:brightness-110 transition" data-testid="hero-signup">{tr("Start free")} <ArrowRight className="h-4 w-4" />
-              </Link>
-              <a href="#how" className="h-12 px-6 inline-flex items-center rounded-xl border border-line bg-surface font-semibold hover:bg-surface-2">{tr("See how it works")}</a>
-            </div>
-            <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted">
-              {["No card needed", "Try myDATA in simulation", "Works on your phone"].map((t) => <li key={t} className="flex items-center gap-1.5"><Check className="h-4 w-4 text-success" />{tr(t)}</li>)}
-            </ul>
+      <section className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-10 sm:pt-16">
+        <div className="max-w-[880px]">
+          <p className="eyebrow">{tr("For Greek small businesses and their accountants")}</p>
+          <h1 className="font-serif text-[44px] leading-[1.02] sm:text-[72px] lg:text-[88px] tracking-[-0.02em] mt-5">
+            {tr("Your books, in order.")}<br /><span className="italic text-[var(--p-accent)]">{tr("Your evenings, back.")}</span>
+          </h1>
+          <p className="lede mt-6 max-w-[620px]">{tr("Invoices and receipts that report themselves to myDATA, expenses read from a photo, and a books assistant you can simply ask. Made for the bakery, the workshop and the studio — not for accountants' jargon.")}</p>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <Link to="/signup" className="btn-ink h-12 px-6 text-[15px]" data-testid="hero-signup">{tr("Start free — no card")}<ArrowRight className="h-4 w-4" /></Link>
+            <a href="#product" className="btn-line h-12 px-6 text-[15px]">{tr("See how it works")}</a>
           </div>
-          <HeroVisual />
         </div>
+        <div className="relative mt-12 sm:mt-16">
+          <Photo src="/photos/hero.jpg" priority alt={tr("A baker writing in a receipt notebook at the counter of a small Athens bakery, early morning")}
+            caption={tr("Neighbourhood bakery, Kypseli — 6:40 a.m.")} imgClass="rounded-[22px] aspect-[16/10] sm:aspect-[16/8]" />
+          <div className="hidden md:block absolute right-8 lg:right-14 top-10"><ReceiptCard /></div>
+          <div className="hidden md:block absolute left-8 lg:left-14 bottom-16"><MarkCard /></div>
+        </div>
+        <div className="md:hidden mt-6 flex gap-4 overflow-x-auto py-3 px-2 -mx-2"><ReceiptCard /><MarkCard /></div>
       </section>
 
-      {/* Who it's for */}
-      <section className="border-y border-line bg-surface">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm font-medium text-muted">
-          <span className="text-xs uppercase tracking-[0.14em]">{tr("Made for")}</span>
-          {["Electricians & plumbers", "Cafés & shops", "Designers & developers", "Consultants", "Workshops", "Small agencies"].map((t) => <span key={t}>{tr(t)}</span>)}
-        </div>
-      </section>
-
-      {/* Three pillars */}
-      <section id="features" className="max-w-6xl mx-auto px-4 sm:px-6 py-20 sm:py-28">
-        <div className="max-w-2xl">
-          <p className="text-sm font-semibold text-brand">{tr("Everything in one place")}</p>
-          <h2 className="mt-2 text-3xl sm:text-[42px] font-extrabold leading-tight">{tr("Three jobs that eat your evenings. Done in minutes.")}</h2>
-        </div>
-        <div className="mt-12 grid md:grid-cols-3 gap-5">
-          {[
-            { icon: ShieldCheck, title: "Invoices that pass myDATA", text: "Every check AADE runs, before you hit send. Get the ΜΑΡΚ and QR on the invoice, gap-free numbering, and credit notes linked to the original.", v: "invoice" },
-            { icon: ScanLine, title: "Snap a receipt, AI files it", text: "Photo or PDF in; vendor, ΑΦΜ, VAT and category out. Duplicates and wrong totals are flagged, so your expenses are right the first time.", v: "scan" },
-            { icon: Truck, title: "Suppliers that stay compliant", text: "Send one link. Suppliers upload their clearances and contracts themselves, and you're reminded before anything expires — or a payment goes to the wrong IBAN.", v: "supplier" },
-          ].map(({ icon: Icon, title, text, v }) => (
-            <div key={title} className="card rounded-3xl p-6 flex flex-col">
-              <div className="h-11 w-11 rounded-2xl bg-brand-soft text-brand flex items-center justify-center"><Icon className="h-5 w-5" /></div>
-              <h3 className="mt-5 text-xl font-bold">{tr(title)}</h3>
-              <p className="mt-2 text-sm text-muted leading-relaxed flex-1">{tr(text)}</p>
-              <div className="mt-6"><PillarVisual kind={v} /></div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-16 grid sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-10">
-          {[
-            [Inbox, "Purchase invoices from myDATA", "Invoices your suppliers reported are pulled in, matched to receipts and classified with AI."],
-            [Landmark, "Bank matching", "Import your statement; payments match invoices and expenses automatically."],
-            [CreditCard, "Card payments", "A “Pay by card” button on every invoice with Viva Wallet."],
-            [BellRing, "Automatic reminders", "Polite emails to clients with overdue invoices — you don't have to chase."],
-            [Mail, "Receipts by email", "Forward e-receipts to your own address; they're read and filed for you."],
-            [CalendarClock, "Tax calendar", "VAT and e-ΕΦΚΑ deadlines with the amount you'll roughly owe."],
-            [FileSignature, "Quotes clients accept online", "Send a link; they accept or decline, and you're notified instantly."],
-            [ClipboardList, "Sales & purchase orders", "Quote → order → invoice in two clicks. Purchase orders become expenses."],
-            [RotateCcw, "Credit notes, done right", "Full or partial, linked to the original ΜΑΡΚ, never more than was invoiced."],
-            [BarChart3, "Profit & VAT at a glance", "Income vs expenses by month and category, and the VAT you'll owe."],
-            [Languages, "Ελληνικά & English", "The whole app in Greek or English — and a bilingual supplier portal."],
-            [Lock, "Secure by default", "Two-step sign-in, encrypted credentials, and your data exportable any time."],
-          ].map(([Icon, t, d]) => (
-            <div key={t}>
-              <Icon className="h-5 w-5 text-brand" />
-              <p className="mt-3 font-semibold">{tr(t)}</p>
-              <p className="mt-1 text-sm text-muted leading-relaxed">{tr(d)}</p>
+      {/* Proof strip */}
+      <section className="max-w-[1200px] mx-auto px-5 sm:px-8 mt-16 sm:mt-24">
+        <div className="grid grid-cols-2 lg:grid-cols-4 border-y border-[var(--p-line)]">
+          {[["myDATA", "Invoices, receipts, credit & delivery notes"], ["ΑΦΜ", "Auto-filled from the public registry"], ["30 s", "From photo to filed expense"], ["€0", "For your accountant, always"]].map(([k, v], n) => (
+            <div key={k} className={`px-4 sm:px-6 py-6 ${n % 2 ? "border-l border-[var(--p-line)]" : ""} ${n === 2 ? "lg:border-l" : ""} ${n > 1 ? "border-t lg:border-t-0 border-[var(--p-line)]" : ""}`}>
+              <p className="font-serif text-[30px] sm:text-[36px] tracking-tight">{k}</p><p className="text-[13px] text-[var(--p-muted)] mt-1">{tr(v)}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* How it works */}
-      <section id="how" className="bg-ink text-bg">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20 sm:py-28">
-          <p className="text-sm font-semibold text-[#8FB0FF]">{tr("How it works")}</p>
-          <h2 className="mt-2 text-3xl sm:text-[42px] font-extrabold leading-tight max-w-2xl">{tr("Set up in five minutes. Save hours every month.")}</h2>
-          <div className="mt-12 grid md:grid-cols-3 gap-6">
-            {[
-              [Wallet, "1. Add your business", "Your ΑΦΜ, logo and IBAN. Connect myDATA when you're ready — try it in simulation first."],
-              [Camera, "2. Invoice and snap", "Create invoices from quotes or from scratch. Photograph receipts as they happen; AI does the typing."],
-              [FileCheck2, "3. Stay on top", "See profit and VAT live, chase overdue invoices, and keep suppliers compliant without email ping-pong."],
-            ].map(([Icon, t, d]) => (
-              <div key={t} className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
-                <Icon className="h-6 w-6 text-[#8FB0FF]" />
-                <p className="mt-4 text-lg font-bold">{tr(t)}</p>
-                <p className="mt-2 text-sm text-white/70 leading-relaxed">{tr(d)}</p>
+      {/* Stories */}
+      <section id="product" className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-24 sm:pt-32">
+        <div className="grid lg:grid-cols-[1fr_1.2fr] gap-6 items-end">
+          <div><p className="eyebrow">{tr("A day with Tameio")}</p><h2 className="h-section mt-4">{tr("Built around the way small businesses actually work.")}</h2></div>
+          <p className="lede lg:pl-10">{tr("Between customers, on the phone, at the end of a long day. Every task takes a minute — and the legal parts take care of themselves.")}</p>
+        </div>
+        <div className="mt-14 grid sm:grid-cols-2 gap-x-8 gap-y-16">
+          {STORIES.map((s, n) => (
+            <article key={s.img} className={n % 2 ? "sm:mt-24" : ""}>
+              <Photo src={s.img} alt={tr(s.title)} imgClass="rounded-[18px] aspect-[4/3]" />
+              <p className="eyebrow mt-6">{String(n + 1).padStart(2, "0")} · {tr(s.tag)}</p>
+              <h3 className="font-serif text-[30px] leading-tight mt-2">{tr(s.title)}</h3>
+              <p className="text-[16px] leading-relaxed text-[var(--p-muted)] mt-3 max-w-[480px]">{tr(s.text)}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {/* Ask */}
+      <section id="ask" className="mt-28 sm:mt-36 bg-[var(--p-band)] py-20 sm:py-28">
+        <div className="max-w-[1200px] mx-auto px-5 sm:px-8"><AskDemo /></div>
+      </section>
+
+      {/* Everything else */}
+      <section className="max-w-[1200px] mx-auto px-5 sm:px-8 py-24 sm:py-32">
+        <div className="grid lg:grid-cols-[0.8fr_1.2fr] gap-12">
+          <div>
+            <p className="eyebrow">{tr("Everything in one place")}</p>
+            <h2 className="h-section mt-4">{tr("The rest of the paperwork, handled.")}</h2>
+            <Photo src="/photos/phone-receipt.jpg" alt={tr("Hands photographing a paper receipt with a phone, next to a cup of coffee")} className="mt-10 hidden lg:block" imgClass="rounded-[18px] aspect-[4/5]" />
+          </div>
+          <dl className="grid sm:grid-cols-2 gap-x-10">
+            {FEATURES.map(([t, d]) => (
+              <div key={t} className="py-6 border-t border-[var(--p-line)]">
+                <dt className="font-serif text-[22px] leading-snug">{tr(t)}</dt><dd className="text-[15px] text-[var(--p-muted)] mt-2 leading-relaxed">{tr(d)}</dd>
               </div>
             ))}
-          </div>
+          </dl>
         </div>
       </section>
 
-      {/* For accountants */}
-      <section id="accountants" className="max-w-6xl mx-auto px-4 sm:px-6 py-20 sm:py-28">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
+      {/* Manifesto band */}
+      <section className="relative">
+        <Photo src="/photos/taverna.jpg" alt={tr("A taverna owner counting the day's receipts at a seaside table in the evening")} imgClass="aspect-[4/5] sm:aspect-[21/9] w-full" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_top,rgb(24_18_10/0.78),rgb(24_18_10/0.15)_60%)]" />
+        <div className="absolute inset-x-0 bottom-0 max-w-[1200px] mx-auto px-5 sm:px-8 pb-10 sm:pb-16">
+          <p className="font-serif text-[#f6f1e7] text-[32px] sm:text-[52px] leading-[1.08] max-w-[820px] tracking-tight">{tr("More evenings at the table. Fewer with the paperwork.")}</p>
+        </div>
+      </section>
+
+      {/* Accountants */}
+      <section id="accountants" className="max-w-[1200px] mx-auto px-5 sm:px-8 py-24 sm:py-32">
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+          <Photo src="/photos/accountant.jpg" alt={tr("An accountant at her desk with ledgers and a calculator")} caption={tr("Accounting office, Thessaloniki")} imgClass="rounded-[18px] aspect-[4/5] sm:aspect-[5/4] lg:aspect-[4/5]" />
           <div>
-            <p className="text-sm font-semibold text-brand">{tr("For accountants")}</p>
-            <h2 className="mt-2 text-3xl sm:text-[42px] font-extrabold leading-tight">{tr("All your clients. One screen. Free.")}</h2>
-            <p className="mt-4 text-muted leading-relaxed">{tr("Stop chasing receipts by email and retyping invoices. Your clients' books arrive organised, and you see exactly what's missing for each month.")}</p>
-            <ul className="mt-6 space-y-3">
-              {["A monthly checklist per client: unreported invoices, unclassified purchase invoices, missing receipts, unmatched bank payments",
-                "Classify purchase invoices for myDATA in bulk, with AI suggestions",
-                "Request missing receipts in one click — clients upload from their phone",
-                "Download a monthly pack: sales, expenses, myDATA, bank and receipts in one ZIP",
-                "Set up a client's business yourself and invite the owner later"].map((x) => (
-                <li key={x} className="flex gap-3 text-sm"><CheckCircle2 className="h-5 w-5 text-success shrink-0" />{tr(x)}</li>
+            <p className="eyebrow">{tr("For accountants — free")}</p>
+            <h2 className="h-section mt-4">{tr("Every client's month on one desk.")}</h2>
+            <p className="lede mt-5">{tr("See which clients are ready to close and which are missing receipts. Ask for what's missing in one click, classify purchase invoices for myDATA and download a tidy monthly pack.")}</p>
+            <ul className="mt-8 space-y-3 text-[16px]">
+              {["Free accountant account, unlimited clients", "Clients invite you — or you set them up", "Missing receipts requested by email", "Month close with a ZIP export pack"].map((x) => (
+                <li key={x} className="flex gap-3"><Check className="h-5 w-5 mt-0.5 text-[var(--p-olive)] shrink-0" />{tr(x)}</li>
               ))}
             </ul>
-            <Link to="/signup?type=accountant" className="mt-8 h-12 px-6 inline-flex items-center gap-2 rounded-xl bg-ink text-bg font-semibold" data-testid="accountant-signup">
-              <Calculator className="h-4 w-4" />{tr("Create a free accountant account")}
-            </Link>
-          </div>
-          <div className="relative">
-            <div className="absolute -inset-8 bg-[radial-gradient(closest-side,hsl(var(--violet)/0.18),transparent)] blur-2xl" aria-hidden />
-            <div className="relative grid sm:grid-cols-2 gap-3">
-              {[["Kafeneio Plaka", "Needs work", "warn", [3, 1, 0]], ["Papadopoulos Electrical", "Ready to close", "success", [0, 0, 0]], ["Stavrou Bakery", "Needs work", "warn", [0, 4, 2]], ["Kritis Tools", "Closed", "neutral", [0, 0, 0]]].map(([n, st, tone, c]) => (
-                <div key={n} className="card p-4 rounded-2xl">
-                  <div className="flex items-start justify-between gap-2"><p className="font-semibold text-sm truncate">{n}</p>
-                    <span className={`chip ${{ warn: "bg-warn/10 text-warn", success: "bg-success/10 text-success", neutral: "bg-surface-2 text-muted" }[tone]}`}>{tr(st)}</span></div>
-                  <ul className="mt-3 space-y-1.5 text-[11px]">
-                    {["Invoices not reported to myDATA", "Purchase invoices not classified", "Expenses without a receipt"].map((l, i) => (
-                      <li key={l} className="flex items-center gap-1.5">{c[i] === 0 ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <span className="h-3.5 min-w-3.5 px-1 rounded-full bg-warn/15 text-warn text-[9px] font-bold flex items-center justify-center">{c[i]}</span>}<span className={c[i] === 0 ? "text-muted" : ""}>{tr(l)}</span></li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
+            <Link to="/signup?type=accountant" className="btn-line h-12 px-6 text-[15px] mt-9">{tr("Open a free accountant account")}<ArrowUpRight className="h-4 w-4" /></Link>
           </div>
         </div>
       </section>
 
       {/* Pricing */}
-      <section id="pricing" className="max-w-6xl mx-auto px-4 sm:px-6 py-20 sm:py-28">
-        <div className="text-center max-w-xl mx-auto">
-          <p className="text-sm font-semibold text-brand">{tr("Pricing")}</p>
-          <h2 className="mt-2 text-3xl sm:text-[42px] font-extrabold">{tr("Simple monthly plans")}</h2>
-          <p className="mt-3 text-muted">{tr("Prices exclude VAT. Cancel any time.")}</p>
-        </div>
-        <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-5 items-start">
-          {PLANS.map((p) => (
-            <div key={p.name} className={`rounded-3xl p-6 sm:p-7 ${p.popular ? "bg-ink text-bg shadow-lift md:-mt-3" : "card"}`}>
-              <div className="flex items-center justify-between"><p className="font-bold text-lg">{tr(p.name)}</p>{p.popular && <span className="chip bg-[#8FB0FF] text-ink">{tr("Most popular")}</span>}</div>
-              <p className={`text-sm mt-1 ${p.popular ? "text-white/70" : "text-muted"}`}>{tr(p.blurb)}</p>
-              <p className="mt-6"><span className="text-4xl font-extrabold font-display num">€{p.price}</span><span className={p.popular ? "text-white/70" : "text-muted"}> {tr("/ month")}</span></p>
-              <Link to="/signup" className={`mt-6 h-11 w-full inline-flex items-center justify-center rounded-xl font-semibold text-sm ${p.popular ? "bg-white text-ink" : "bg-brand text-white"}`}>{tr("Start free")}</Link>
-              <ul className="mt-6 space-y-2.5 text-sm">
-                {p.features.map((f) => <li key={f} className="flex gap-2"><Check className={`h-4 w-4 mt-0.5 shrink-0 ${p.popular ? "text-[#8FB0FF]" : "text-success"}`} />{tr(f)}</li>)}
-              </ul>
-            </div>
-          ))}
+      <section id="pricing" className="bg-[var(--p-band)] py-24 sm:py-32">
+        <div className="max-w-[1200px] mx-auto px-5 sm:px-8">
+          <div className="max-w-[640px]"><p className="eyebrow">{tr("Pricing")}</p><h2 className="h-section mt-4">{tr("Fair prices. Start free, stay as long as it fits.")}</h2></div>
+          <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {PLANS.map((p) => (
+              <div key={p.name} className={`rounded-[20px] p-6 flex flex-col ${p.popular ? "bg-[var(--p-ink)] text-[var(--p-bg)]" : "bg-[var(--p-card)] border border-[var(--p-line)]"}`}>
+                <div className="flex items-center justify-between"><p className="font-serif text-[24px]">{tr(p.name)}</p>{p.popular && <span className="text-[11px] uppercase tracking-[0.14em] text-[#e9c99a]">{tr("Most popular")}</span>}</div>
+                <p className={`text-[13px] mt-1 ${p.popular ? "opacity-75" : "text-[var(--p-muted)]"}`}>{tr(p.blurb)}</p>
+                <p className="mt-6"><span className="font-serif text-[48px] tracking-tight tabular-nums">€{p.price}</span><span className={`text-[13px] ${p.popular ? "opacity-75" : "text-[var(--p-muted)]"}`}> / {tr("month")}</span></p>
+                <ul className="mt-6 space-y-2.5 text-[14px] flex-1">
+                  {p.features.map((f) => <li key={f} className="flex gap-2.5"><Check className={`h-4 w-4 mt-0.5 shrink-0 ${p.popular ? "text-[#e9c99a]" : "text-[var(--p-olive)]"}`} />{tr(f)}</li>)}
+                </ul>
+                <Link to="/signup" className={`mt-8 h-11 rounded-full inline-flex items-center justify-center text-[14px] font-semibold ${p.popular ? "bg-[var(--p-bg)] text-[var(--p-ink)]" : "border border-[var(--p-ink)] hover:bg-[var(--p-ink)] hover:text-[var(--p-bg)] transition-colors"}`}>
+                  {p.price === 0 ? tr("Start free") : tr("Choose {plan}", { plan: tr(p.name) })}
+                </Link>
+              </div>
+            ))}
+          </div>
+          <p className="text-[13px] text-[var(--p-muted)] mt-6">{tr("Prices exclude VAT. Change or cancel any time.")}</p>
         </div>
       </section>
 
       {/* FAQ */}
-      <section id="faq" className="max-w-3xl mx-auto px-4 sm:px-6 pb-24">
-        <h2 className="text-3xl sm:text-4xl font-extrabold text-center">{tr("Questions")}</h2>
-        <div className="mt-10 card divide-y divide-line">
-          {FAQ.map(([q, a], i) => (
-            <div key={q}>
-              <button className="w-full flex items-center justify-between gap-4 text-left px-5 sm:px-6 py-5 font-semibold" onClick={() => setFaq(faq === i ? -1 : i)} aria-expanded={faq === i}>
-                {tr(q)}<ChevronDown className={`h-5 w-5 text-muted shrink-0 transition-transform ${faq === i ? "rotate-180" : ""}`} />
+      <section id="faq" className="max-w-[880px] mx-auto px-5 sm:px-8 py-24 sm:py-32">
+        <h2 className="h-section">{tr("Questions, answered")}</h2>
+        <div className="mt-10 border-t border-[var(--p-line)]">
+          {FAQ.map(([q, a], n) => (
+            <div key={q} className="border-b border-[var(--p-line)]">
+              <button onClick={() => setFaq(faq === n ? -1 : n)} className="w-full flex items-center justify-between gap-6 py-5 text-left" aria-expanded={faq === n}>
+                <span className="font-serif text-[20px] sm:text-[22px] leading-snug">{tr(q)}</span>
+                {faq === n ? <Minus className="h-5 w-5 shrink-0" /> : <Plus className="h-5 w-5 shrink-0" />}
               </button>
-              {faq === i && <p className="px-5 sm:px-6 pb-5 -mt-1 text-sm text-muted leading-relaxed animate-in">{tr(a)}</p>}
+              {faq === n && <p className="pb-6 -mt-1 text-[16px] leading-relaxed text-[var(--p-muted)] max-w-[720px]">{tr(a)}</p>}
             </div>
           ))}
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
-        <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#2F6BFF] to-[#1A3FB8] px-6 sm:px-12 py-14 text-white">
-          <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" aria-hidden />
-          <h2 className="relative text-3xl sm:text-4xl font-extrabold max-w-xl">{tr("Spend your evenings on something better than paperwork.")}</h2>
-          <Link to="/signup" className="relative mt-8 h-12 px-6 inline-flex items-center gap-2 rounded-xl bg-white text-ink font-semibold">{tr("Create your free account")} <ArrowRight className="h-4 w-4" /></Link>
+      {/* Final CTA */}
+      <section className="max-w-[1200px] mx-auto px-5 sm:px-8 pb-24">
+        <div className="grid lg:grid-cols-[1.1fr_0.9fr] rounded-[26px] overflow-hidden bg-[#1f1a14] text-[#f6f1e7]">
+          <div className="p-8 sm:p-14 flex flex-col justify-center">
+            <h2 className="font-serif text-[36px] sm:text-[52px] leading-[1.05] tracking-tight">{tr("Open the shop. We'll keep the books.")}</h2>
+            <p className="mt-5 text-[16px] opacity-75 max-w-[440px]">{tr("Set up in five minutes. Bring your clients and products from Excel, or start with sample data to look around.")}</p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link to="/signup" className="h-12 px-6 rounded-full bg-[#f6f1e7] text-[#1f1a14] inline-flex items-center gap-2 font-semibold text-[15px]">{tr("Create your free account")}<ArrowRight className="h-4 w-4" /></Link>
+            </div>
+          </div>
+          <Photo src="/photos/grocery.jpg" alt={tr("A grocer talking with a customer in a village shop")} imgClass="h-full min-h-[280px]" />
         </div>
       </section>
 
-      <footer className="border-t border-line">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted">
-          <Logo />
-          <p>© {new Date().getFullYear()} {APP_NAME}</p>
+      <footer className="border-t border-[var(--p-line)]">
+        <div className="max-w-[1200px] mx-auto px-5 sm:px-8 py-10 flex flex-col sm:flex-row gap-6 sm:items-center justify-between text-[14px] text-[var(--p-muted)]">
+          <div className="flex items-center gap-2 text-[var(--p-ink)]"><LogoMark className="h-6 w-6" /><span className="font-serif text-[20px]">{APP_NAME}</span></div>
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            <a href="#product" className="hover:text-[var(--p-ink)]">{tr("Product")}</a><a href="#pricing" className="hover:text-[var(--p-ink)]">{tr("Pricing")}</a>
+            <Link to="/privacy" className="hover:text-[var(--p-ink)]">{tr("Privacy")}</Link><Link to="/login" className="hover:text-[var(--p-ink)]">{tr("Sign in")}</Link>
+          </div>
+          <p>© {new Date().getFullYear()} {APP_NAME}{el ? " · Φτιαγμένο στην Ελλάδα" : " · Made in Greece"}</p>
         </div>
       </footer>
     </div>

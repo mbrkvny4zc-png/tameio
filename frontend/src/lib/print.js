@@ -4,7 +4,8 @@ import { money, date } from "@/lib/format";
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 const TITLES = { invoice: ["INVOICE", "ΤΙΜΟΛΟΓΙΟ"], credit_note: ["CREDIT NOTE", "ΠΙΣΤΩΤΙΚΟ"], quote: ["QUOTE", "ΠΡΟΣΦΟΡΑ"],
-  sales_order: ["SALES ORDER", "ΠΑΡΑΓΓΕΛΙΑ"], purchase_order: ["PURCHASE ORDER", "ΠΑΡΑΓΓΕΛΙΑ ΑΓΟΡΑΣ"] };
+  sales_order: ["SALES ORDER", "ΠΑΡΑΓΓΕΛΙΑ"], purchase_order: ["PURCHASE ORDER", "ΠΑΡΑΓΓΕΛΙΑ ΑΓΟΡΑΣ"],
+  receipt_11_1: ["RETAIL SALES RECEIPT", "ΑΠΟΔΕΙΞΗ ΛΙΑΝΙΚΗΣ ΠΩΛΗΣΗΣ"], receipt_11_2: ["SERVICE RECEIPT", "ΑΠΟΔΕΙΞΗ ΠΑΡΟΧΗΣ ΥΠΗΡΕΣΙΩΝ"] };
 
 /** Opens a print-ready A4 page (Save as PDF from the print dialog). */
 export async function printDocument(doc, biz = {}, kind = "invoice") {
@@ -16,6 +17,7 @@ export async function printDocument(doc, biz = {}, kind = "invoice") {
   if (md.state === "transmitted" && md.qr_url) {
     try { qr = await QRCode.toDataURL(md.qr_url, { margin: 1, width: 180 }); } catch { qr = ""; }
   }
+  if (doc.kind === "receipt") kind = md.invoice_type === "11.2" ? "receipt_11_2" : "receipt_11_1";
   const [en, el] = TITLES[kind] || TITLES.invoice;
   const party = kind === "purchase_order"
     ? { label: "Supplier", name: doc.supplier_name, extra: doc.supplier_afm ? `ΑΦΜ ${doc.supplier_afm}` : "" }

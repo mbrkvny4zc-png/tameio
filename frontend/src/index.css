@@ -3,12 +3,12 @@
 @tailwind utilities;
 
 :root {
-  --bg: 220 33% 98%;
+  --bg: 40 30% 97%;
   --surface: 0 0% 100%;
-  --surface-2: 220 30% 96%;
-  --line: 220 18% 90%;
-  --ink: 224 40% 10%;
-  --muted: 222 12% 44%;
+  --surface-2: 38 28% 94.5%;
+  --line: 36 20% 88%;
+  --ink: 30 18% 11%;
+  --muted: 30 8% 40%;
   --brand: 224 76% 48%;
   --brand-soft: 224 100% 96%;
   --success: 160 70% 34%;
@@ -20,12 +20,12 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
-    --bg: 224 30% 7%;
-    --surface: 224 26% 10%;
-    --surface-2: 224 22% 14%;
-    --line: 224 18% 20%;
-    --ink: 220 30% 96%;
-    --muted: 220 12% 64%;
+    --bg: 30 14% 7%;
+    --surface: 30 12% 10%;
+    --surface-2: 30 10% 14%;
+    --line: 30 9% 20%;
+    --ink: 38 30% 94%;
+    --muted: 34 10% 64%;
     --brand: 224 90% 64%;
     --brand-soft: 224 50% 18%;
     --success: 158 60% 50%;
@@ -68,3 +68,33 @@
 @media print {
   .no-print { display: none !important; }
 }
+
+/* ---------- Landing page: warm "paper" editorial theme ---------- */
+.paper {
+  --p-bg: #f6f1e7; --p-card: #fffdf8; --p-band: #efe6d4; --p-ink: #1f1a14; --p-muted: #6b6257; --p-line: #ddd2bf;
+  --p-accent: #b5532c; --p-olive: #5b6b35;
+  background: var(--p-bg); color: var(--p-ink);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) .paper {
+    --p-bg: #16120d; --p-card: #1f1a14; --p-band: #1c1711; --p-ink: #f1e9da; --p-muted: #b3a792; --p-line: #3a3127;
+    --p-accent: #e0875f; --p-olive: #a7b97a;
+  }
+}
+@layer components {
+  .eyebrow { @apply text-[12px] uppercase tracking-[0.18em] text-[var(--p-muted)] font-medium; }
+  .h-section { @apply font-serif text-[36px] sm:text-[48px] leading-[1.06] tracking-[-0.015em]; }
+  .lede { @apply text-[17px] sm:text-[19px] leading-relaxed text-[var(--p-muted)]; }
+  .btn-ink { @apply h-10 px-5 inline-flex items-center gap-2 rounded-full bg-[var(--p-ink)] text-[var(--p-bg)] text-[14px] font-semibold hover:opacity-90 transition-opacity; }
+  .btn-line { @apply h-10 px-5 inline-flex items-center gap-2 rounded-full border border-[var(--p-ink)] text-[14px] font-semibold hover:bg-[var(--p-ink)] hover:text-[var(--p-bg)] transition-colors; }
+}
+/* Film grain over photos: fine noise + a soft vignette, like a 35mm print. */
+.grain::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: overlay; opacity: .35;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.grain::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background: radial-gradient(120% 100% at 50% 45%, transparent 60%, rgb(30 20 8 / 0.28));
+}
+.photo img { filter: saturate(.92) contrast(1.02) sepia(.06); }

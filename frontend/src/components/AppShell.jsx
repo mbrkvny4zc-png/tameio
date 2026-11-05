@@ -31,6 +31,7 @@ function buildNav(t, { kind, isAccountant, admin }) {
   // Each group shows its everyday pages; the rest sit behind "more" so the menu stays short.
   return [
     { key: "top", group: null, items: [{ to: "/app", label: t("Dashboard"), icon: LayoutDashboard, end: true },
+      { to: "/app/calendar", label: t("Calendar"), icon: CalendarClock },
       { to: "/app/ask", label: t("Ask Tameio"), icon: MessageSquareText },
       { to: "/app/mentions", label: t("Mentions"), icon: AtSign },
       ...(isAccountant ? [{ to: "/app/practice", label: t("All clients"), icon: Calculator }] : [])] },
@@ -55,7 +56,6 @@ function buildNav(t, { kind, isAccountant, admin }) {
       { to: "/app/reports", label: t("Reports"), icon: BarChart3 },
       { to: "/app/mydata", label: "myDATA", icon: ShieldCheck },
     ], more: [
-      { to: "/app/calendar", label: t("Tax calendar"), icon: CalendarClock },
       { to: "/app/reports/custom", label: t("Custom reports"), icon: FileBarChart },
     ] },
     ...adminGroup,
@@ -109,6 +109,19 @@ function useMentionCount() {
     const id = setInterval(load, 60_000);
     ["tameio:mentions-changed", "tameio:comments-changed"].forEach((e) => window.addEventListener(e, load));
     return () => { clearInterval(id); ["tameio:mentions-changed", "tameio:comments-changed"].forEach((e) => window.removeEventListener(e, load)); };
+  }, []);
+  return n;
+}
+
+/** Overdue or due-today items for the Calendar badge (checked every few minutes). */
+function useAgendaCount() {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    const load = () => api.get("/agenda/count").then((r) => setN(r.due)).catch(() => {});
+    load();
+    const id = setInterval(load, 300_000);
+    window.addEventListener("tameio:agenda-changed", load);
+    return () => { clearInterval(id); window.removeEventListener("tameio:agenda-changed", load); };
   }, []);
   return n;
 }
@@ -370,6 +383,7 @@ function Shell() {
   const nav = applyNav(baseNav, layout.nav);
   const [editing, setEditing] = useState(false);
   const mentionCount = useMentionCount();
+  const agendaCount = useAgendaCount();
   const practiceOrg = orgs?.find((o) => o.kind === "practice");
 
   const Sidebar = (
@@ -386,7 +400,7 @@ function Shell() {
         )}
       </div>
       <nav className="flex-1 overflow-y-auto px-3">
-        {editing ? <NavEditor base={baseNav} onDone={() => setEditing(false)} /> : <><PinnedNav /><NavGroups nav={nav} badges={{ "/app/mentions": mentionCount }} /></>}
+        {editing ? <NavEditor base={baseNav} onDone={() => setEditing(false)} /> : <><PinnedNav /><NavGroups nav={nav} badges={{ "/app/mentions": mentionCount, "/app/calendar": agendaCount }} /></>}
         {!editing && layout.can_edit && (
           <button onClick={() => setEditing(true)} className="flex items-center gap-2 px-3 h-8 text-xs font-medium text-muted/80 hover:text-ink mb-3" data-testid="nav-edit"><SlidersHorizontal className="h-3.5 w-3.5" />{t("Edit menu")}</button>
         )}

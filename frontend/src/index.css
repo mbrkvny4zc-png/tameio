@@ -56,6 +56,8 @@
       transition-shadow focus:outline-none focus:border-brand focus:shadow-glow disabled:opacity-60;
   }
   .label { @apply block text-xs font-medium text-muted mb-1.5; }
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
   .chip { @apply inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap; }
   .table-head { @apply text-left text-[11px] font-semibold uppercase tracking-wider text-muted px-4 py-3; }
   .td { @apply px-4 py-3 text-sm; }

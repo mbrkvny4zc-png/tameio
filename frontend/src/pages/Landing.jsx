@@ -161,7 +161,7 @@ const FEATURES = [
   ["Bank matching", "Import a statement from any Greek bank; payments match to invoices and receipts."],
   ["Quotes, orders, delivery notes", "From quote to invoice to delivery note without retyping a line."],
   ["Supplier compliance", "Tax and social-security clearances collected, with reminders before they expire."],
-  ["Tax calendar", "VAT, payroll and ΕΝΦΙΑ deadlines with an estimate of what you'll owe."],
+  ["Calendar & reminders", "Every deadline in one place — taxes, money in and out, myDATA, quotes — with reminders, and in your Google Calendar too."],
   ["Bring your data", "Clients, products and past invoices from Excel or CSV, in minutes."],
 ];
 

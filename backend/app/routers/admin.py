@@ -263,13 +263,14 @@ async def update_error(key: str, data: ErrorUpdate, u: dict = Depends(current_us
 
 def jobs() -> dict:
     """Registry of background automations: name -> (title, description, coroutine function)."""
-    from app.routers import custom_reports, invoices, payments, suppliers, taxes
+    from app.routers import agenda, custom_reports, invoices, payments, suppliers, taxes
     return {
         "overdue": ("Mark overdue invoices", "Sent invoices past their due date become “Overdue”.", invoices.flag_overdue),
         "recurring": ("Create recurring invoices", "Monthly invoices are copied as new drafts.", invoices.run_recurring),
         "supplier_reminders": ("Supplier document reminders", "Emails suppliers before their certificates expire.", suppliers.check_supplier_expiries),
         "payment_reminders": ("Payment reminders", "Polite emails to clients with overdue invoices.", payments.send_due_reminders),
         "tax_reminders": ("Tax deadline reminders", "Notifies businesses before VAT and other deadlines.", taxes.tax_reminders),
+        "agenda_reminders": ("Calendar reminders", "Once a day, tells each person what's due soon or overdue (in the app, and by email if they want).", agenda.agenda_reminders),
         "scheduled_reports": ("Send scheduled reports", "Emails each business's weekly (Mondays) and monthly (1st) reports to the chosen team members.", custom_reports.send_scheduled),
         "error_digest": ("Daily error digest", "Emails you a summary of new crashes and open bug reports.", error_digest),
     }

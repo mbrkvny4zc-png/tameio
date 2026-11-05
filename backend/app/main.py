@@ -12,7 +12,7 @@ from app.auth import router as auth_router
 from app.db import ensure_indexes
 from app.notify import router as notify_router
 from app.plans import router as plans_router
-from app.routers import account, admin, comments, custom_reports, layout, assistant, bank, catalog, delivery, lookup, onboarding, partners, pos, shops, business, documents, expenses, inbox, invoices, mydata, payments, practice, received, reports, suppliers, taxes, team
+from app.routers import account, admin, agenda, comments, custom_reports, layout, assistant, bank, catalog, delivery, lookup, onboarding, partners, pos, shops, business, documents, expenses, inbox, invoices, mydata, payments, practice, received, reports, suppliers, taxes, team
 
 log = logging.getLogger("scheduler")
 
@@ -62,7 +62,7 @@ def create_app(with_lifespan: bool = True) -> FastAPI:
     api = APIRouter(prefix="/api")
     for r in (auth_router, notify_router, business.router, invoices.router, documents.router, mydata.router,
               suppliers.router, expenses.router, reports.router, plans_router, team.router, practice.router, received.router, payments.router, bank.router, inbox.router, taxes.router, account.router,
-              lookup.router, catalog.router, delivery.router, assistant.router, onboarding.router, shops.router, pos.router, partners.router, admin.router, layout.router, custom_reports.router, comments.router):
+              lookup.router, catalog.router, delivery.router, assistant.router, onboarding.router, shops.router, pos.router, partners.router, admin.router, layout.router, custom_reports.router, comments.router, agenda.router):
         api.include_router(r)
 
     @api.get("/health")

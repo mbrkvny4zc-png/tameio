@@ -170,6 +170,7 @@ async def login(data: LoginInput, request: Request, response: Response):
         if not totp.verify(u["totp_secret"], data.code):
             raise HTTPException(status_code=401, detail={"message": "That code isn't right — try the newest one", "two_factor_required": True})
     token = await _create_session(u["id"])
+    await get_db().users.update_one({"id": u["id"]}, {"$set": {"last_login_at": now()}})
     _set_cookie(response, token)
     return {"user": _public_user(u), "token": token}
 

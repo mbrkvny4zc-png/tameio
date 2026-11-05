@@ -24,6 +24,8 @@ Invoicing, AADE myDATA e-invoicing, AI receipt scanning and supplier compliance 
 | **Stock** | Optional per product: sales and receipts take stock out, credit notes put it back, low-stock alerts, manual adjustments |
 | **Phone app** | Installable PWA with home-screen shortcuts (scan, quick receipt, new invoice); the API is never cached |
 | **Partner programme** | Every accounting firm gets a referral link (`/r/CODE`), a custom code and a QR · businesses are attributed once (sign-up link, set up by the firm, or code entered within 60 days) · monthly revenue-share report with CSV · admin page for share %, totals and payouts |
+| **Management (creator only)** | Overview (MRR, sign-ups, plans, usage, most active businesses), all users with plan changes, bug reports & ideas with replies, automatically captured crashes (browser and server, grouped and counted, "copy for fixing"), automations with on/off, run now and run history, partner payouts · access: `OWNER_EMAIL` (+ `PLATFORM_ADMINS`) |
+| **Help & feedback** | Every user can report a problem, suggest an idea or ask a question (with screenshot and page); they see your replies and get notified · new reports and a daily error digest are emailed to the creator |
 | **Ease of use** | Grouped, shorter menu · Ctrl/⌘+K search · "+ New" menu · first-run checklist with removable sample data · Settings in four tabs |
 
 ## Stack

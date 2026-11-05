@@ -7,7 +7,7 @@ import { useT } from "@/lib/i18n";
 import { Badge, Button, Card, Empty, Input, Modal, PageHeader, PageLoader, Stat, Table } from "@/components/ui";
 
 /** For Tameio's own admins: every partner firm, what it's owed, and marking payouts as paid. */
-export default function AdminPartners() {
+export default function AdminPartners({ embedded }) {
   const { t } = useT();
   const [list, setList] = useState(null);
   const [open, setOpen] = useState(null);
@@ -25,7 +25,7 @@ export default function AdminPartners() {
   const thisMonth = new Date().toISOString().slice(0, 7);
   return (
     <div className="animate-in">
-      <PageHeader title={t("Partner payouts")} subtitle={t("Accounting firms, what their referrals bring in, and what you owe them.")} />
+      {!embedded && <PageHeader title={t("Partner payouts")} subtitle={t("Accounting firms, what their referrals bring in, and what you owe them.")} />}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Stat label={t("Partner firms")} value={list.length} />
         <Stat label={t("Referred businesses")} value={list.reduce((s, p) => s + p.referred, 0)} />

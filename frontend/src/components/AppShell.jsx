@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import {
   LayoutDashboard, FileText, FileSignature, ClipboardList, Users, Receipt, ShoppingCart, Truck, BarChart3, Settings, ScanLine, Bell, LogOut,
   Menu, X, ShieldCheck, Inbox, Landmark, CalendarClock, Calculator, ChevronsUpDown, Check, Building2, ArrowLeft, Sparkles,
-  ChevronDown, MessageSquareText, Package, PackageCheck, Search, Smartphone, Handshake,
+  ChevronDown, MessageSquareText, Package, PackageCheck, Search, Smartphone, Handshake, Gauge, LifeBuoy,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -14,9 +14,10 @@ import { Logo } from "@/components/Logo";
 import { Button, Modal, cx } from "@/components/ui";
 import { CommandPalette, NewMenu } from "@/components/CommandPalette";
 import { AiDraft } from "@/components/AiDraft";
+import { ErrorBoundary } from "@/lib/crash";
 
 function buildNav(t, { kind, isAccountant, admin }) {
-  const adminGroup = admin ? [{ group: "Tameio", items: [{ to: "/app/admin/partners", label: t("Partner payouts"), icon: Handshake }] }] : [];
+  const adminGroup = admin ? [{ group: t("Owner"), items: [{ to: "/app/admin", label: t("Management"), icon: Gauge }] }] : [];
   if (kind === "practice") {
     return [
       { group: null, items: [{ to: "/app/practice", label: t("My clients"), icon: Calculator, end: true },
@@ -227,7 +228,11 @@ export default function AppShell() {
   const { t } = useT();
   const [drawer, setDrawer] = useState(false);
   const loc = useLocation();
-  useEffect(() => setDrawer(false), [loc.pathname]);
+  useEffect(() => {
+    setDrawer(false);
+    // Remember where the user was, so a bug report can say which page it's about.
+    if (!loc.pathname.startsWith("/app/feedback")) { try { sessionStorage.setItem("tameio_last_page", loc.pathname + loc.search); } catch { /* ignore */ } }
+  }, [loc.pathname, loc.search]);
   const kind = current?.kind || "business";
   const nav = buildNav(t, { kind, isAccountant, admin: !!user?.platform_admin });
   const practiceOrg = orgs?.find((o) => o.kind === "practice");
@@ -248,6 +253,7 @@ export default function AppShell() {
       <nav className="flex-1 overflow-y-auto px-3"><NavGroups nav={nav} /></nav>
       <div className="p-3 border-t border-line">
         <InstallApp />
+        <NavItem to="/app/feedback" label={t("Help & feedback")} icon={LifeBuoy} />
         <NavItem to="/app/settings" label={t("Settings")} icon={Settings} />
         <div className="flex items-center gap-3 px-2 py-2 mt-1">
           <div className="h-9 w-9 rounded-full bg-gradient-to-br from-brand to-violet text-white font-semibold text-sm flex items-center justify-center">{(user?.name || "?")[0]}</div>
@@ -290,7 +296,7 @@ export default function AppShell() {
             {kind !== "practice" && <NewMenu />}
           </div>
         </header>
-        <main className="px-4 sm:px-6 lg:px-10 py-6 sm:py-8 pb-28 lg:pb-12 max-w-[1400px]"><Outlet /></main>
+        <main className="px-4 sm:px-6 lg:px-10 py-6 sm:py-8 pb-28 lg:pb-12 max-w-[1400px]"><ErrorBoundary key={loc.pathname}><Outlet /></ErrorBoundary></main>
       </div>
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-20 bg-surface/95 backdrop-blur border-t border-line pb-[env(safe-area-inset-bottom)] no-print">
         <div className={cx("grid h-16 items-center", bottom.length === 5 ? "grid-cols-5" : "grid-cols-3")}>

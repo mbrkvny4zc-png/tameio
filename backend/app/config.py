@@ -30,7 +30,9 @@ SCHEDULER_ENABLED = os.environ.get("SCHEDULER_ENABLED", "true").lower() == "true
 
 # Plans: new businesses start here. Accountants (practice accounts) are always free.
 DEFAULT_PLAN = os.environ.get("DEFAULT_PLAN", "free")
-PLATFORM_ADMINS = [e.strip().lower() for e in os.environ.get("PLATFORM_ADMINS", "").split(",") if e.strip()]
+# The app's creator: always has the management area. Extra admins can be added with PLATFORM_ADMINS.
+OWNER_EMAIL = os.environ.get("OWNER_EMAIL", "gentianhatillari13@gmail.com").strip().lower()
+PLATFORM_ADMINS = sorted({e.strip().lower() for e in os.environ.get("PLATFORM_ADMINS", "").split(",") if e.strip()} | ({OWNER_EMAIL} if OWNER_EMAIL else set()))
 
 # Receipts by email: receipts+<token>@INBOUND_DOMAIN, delivered to /api/inbound/email with this secret.
 INBOUND_DOMAIN = os.environ.get("INBOUND_DOMAIN", "")

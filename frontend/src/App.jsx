@@ -36,6 +36,8 @@ const Products = lazy(() => import("@/pages/app/Products"));
 const DeliveryNotes = lazy(() => import("@/pages/app/DeliveryNotes"));
 const Partner = lazy(() => import("@/pages/app/Partner"));
 const AdminPartners = lazy(() => import("@/pages/app/AdminPartners"));
+const Admin = lazy(() => import("@/pages/app/Admin"));
+const Feedback = lazy(() => import("@/pages/app/Feedback"));
 const PublicDeliveryNote = lazy(() => import("@/pages/public/PublicDeliveryNote"));
 const Privacy = lazy(() => import("@/pages/Privacy"));
 const PaidReturn = lazy(() => import("@/pages/public/PaidReturn"));
@@ -81,6 +83,8 @@ export default function App() {
           <Route path="ask" element={<Ask />} />
           <Route path="partner" element={<Partner />} />
           <Route path="admin/partners" element={<AdminPartners />} />
+          <Route path="admin" element={<Admin />} />
+          <Route path="feedback" element={<Feedback />} />
           <Route path="products" element={<Products />} />
           <Route path="delivery-notes" element={<DeliveryNotes />} />
           <Route path="invoices" element={<Invoices />} />

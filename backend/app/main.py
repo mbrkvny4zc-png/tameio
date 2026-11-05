@@ -70,7 +70,29 @@ def create_app(with_lifespan: bool = True) -> FastAPI:
         return {"ok": True, "app": config.APP_NAME}
 
     app.include_router(api)
+    _serve_frontend(app)
     return app
+
+
+def _serve_frontend(app: FastAPI):
+    """In production the built website (frontend/dist) is served by this same server, so the site and the API
+    share one address — sign-in cookies stay first-party. Every non-API path falls back to index.html."""
+    from pathlib import Path
+    from fastapi.responses import FileResponse
+    dist = Path(config.STATIC_DIR) if config.STATIC_DIR else None
+    if not dist or not (dist / "index.html").exists():
+        return
+    index = dist / "index.html"
+
+    @app.get("/{path:path}", include_in_schema=False)
+    async def spa(path: str):
+        if path.startswith("api/"):
+            return JSONResponse({"detail": "Not found"}, status_code=404)
+        f = (dist / path).resolve()
+        if path and f.is_file() and dist.resolve() in f.parents:
+            headers = {"Cache-Control": "public, max-age=31536000, immutable"} if path.startswith("assets/") else {"Cache-Control": "no-cache"}
+            return FileResponse(f, headers=headers)
+        return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
 
 app = create_app()

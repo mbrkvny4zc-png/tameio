@@ -48,3 +48,6 @@ AADE_REGISTRY_PASS = os.environ.get("AADE_REGISTRY_PASS", "")
 
 # Partner programme: default revenue share (%) for accounting firms that refer paying businesses.
 PARTNER_SHARE_PCT = float(os.environ.get("PARTNER_SHARE_PCT", "20"))
+
+# Production: folder with the built website (frontend/dist) to serve from the same address as the API.
+STATIC_DIR = os.environ.get("STATIC_DIR", "")

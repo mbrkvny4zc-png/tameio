@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
-  ArrowUpRight, ScanLine, FilePlus2, FileSignature, ReceiptText, AlertTriangle, ShieldCheck, Truck, Clock, CheckCircle2, Circle, TrendingUp, TrendingDown, Landmark, Trash2, Sparkles, FileSpreadsheet, MessageSquareText, SlidersHorizontal, Pin, X, ChevronUp, ChevronDown, Eye, EyeOff,
+  ArrowUpRight, Infinity as InfinityIcon, ScanLine, FilePlus2, FileSignature, ReceiptText, AlertTriangle, ShieldCheck, Truck, Clock, CheckCircle2, Circle, TrendingUp, TrendingDown, Landmark, Trash2, Sparkles, FileSpreadsheet, MessageSquareText, SlidersHorizontal, Pin, X, ChevronUp, ChevronDown, Eye, EyeOff,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -196,6 +196,9 @@ export default function Dashboard() {
       .then(([summary, attention, biz, mydata, invoices, expenses, suppliers, requests, calendar]) => setD({ summary, attention, biz, mydata, invoices, expenses, suppliers, requests, calendar }))
       .catch(() => setD(false));
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Zeroloop is loaded separately so a slow connection never holds up the dashboard.
+  const [zl, setZl] = useState(null);
+  useEffect(() => { api.get("/zeroloop").then(setZl).catch(() => {}); }, []);
 
   if (d === null) return <PageLoader />; if (d === false) return <p className="text-muted">{tr("Couldn't load your dashboard. Refresh to try again.")}</p>;
   const { summary: s, attention: a } = d;
@@ -208,7 +211,9 @@ export default function Dashboard() {
   const openReq = (d.requests || []).filter((r) => r.status === "open");
   const reqItems = openReq.reduce((n, r) => n + r.items.filter((i) => i.status !== "done").length, 0);
   const nextTax = (d.calendar?.items || []).find((i) => !i.done && i.days_left >= 0 && i.days_left <= 21);
+  const zlWaiting = zl?.connected ? (zl.summary?.pending_approvals || 0) + (zl.summary?.awaiting_payments || 0) : 0;
   const alerts = [
+    zlWaiting && [InfinityIcon, "brand", t("Zeroloop: {n} clearing(s) need your approval", { n: zlWaiting }), "/app/settings?tab=connections"],
     reqItems && [ReceiptText, "brand", t("Your accountant needs {n} receipt(s)", { n: reqItems }), "/app/requests"],
     nextTax && [Landmark, nextTax.days_left <= 7 ? "danger" : "warn", `${lang === "el" ? nextTax.title : nextTax.title_en} — ${nextTax.days_left === 0 ? t("today") : t("in {n} days", { n: nextTax.days_left })}${nextTax.estimate != null ? ` · ${money(nextTax.estimate)}` : ""}`, "/app/calendar"],
     a.overdue_invoices && [AlertTriangle, "danger", t("Overdue invoices: {n}", { n: a.overdue_invoices }), "/app/invoices?filter=overdue"],

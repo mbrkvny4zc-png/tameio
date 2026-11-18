@@ -203,6 +203,8 @@ function CreditNoteDialog({ invoice, onClose, onCreated }) {
 }
 
 const METHODS = [["bank_transfer", "Bank transfer"], ["cash", "Cash"], ["card", "Card"], ["cheque", "Cheque"], ["other", "Other"]];
+// Shown on recorded payments but not offered in the form: booked by integrations.
+const METHOD_LABELS = [...METHODS, ["set_off", "Set-off (Zeroloop)"]];
 
 /** Record part payments ("paid €300 of €800") and see what's left. */
 function PaymentsDialog({ invoice, onClose, onChanged }) {
@@ -230,7 +232,7 @@ function PaymentsDialog({ invoice, onClose, onChanged }) {
           <ul className="divide-y divide-line rounded-xl border border-line text-sm">
             {inv.payments.map((p) => (
               <li key={p.id} className="flex items-center gap-3 px-3 py-2">
-                <span className="text-muted w-24">{date(p.date)}</span><span className="flex-1">{tr((METHODS.find((m) => m[0] === p.method) || [, p.method])[1])}{p.note ? ` · ${p.note}` : ""}</span>
+                <span className="text-muted w-24">{date(p.date)}</span><span className="flex-1">{tr((METHOD_LABELS.find((m) => m[0] === p.method) || [, p.method])[1])}{p.note ? ` · ${p.note}` : ""}</span>
                 <span className="num font-semibold">{money(p.amount, inv.currency)}</span>
                 <IconBtn icon={Trash2} label={tr("Remove")} tone="danger" onClick={() => remove(p)} />
               </li>

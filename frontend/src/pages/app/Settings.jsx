@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import QRCode from "qrcode";
-import { Building2, Copy, CreditCard, Download, FileSpreadsheet, Palette, Plug, ShoppingBag, Smartphone, ImagePlus, KeyRound, Mail, RefreshCw, ShieldCheck, Sparkles, Tags, Trash2, Users, X } from "lucide-react";
+import { Building2, Copy, CreditCard, Download, ExternalLink, FileSpreadsheet, Infinity as InfinityIcon, Palette, Plug, ShoppingBag, Smartphone, ImagePlus, KeyRound, Mail, RefreshCw, ShieldCheck, Sparkles, Tags, Trash2, Users, X } from "lucide-react";
 import { api, download } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { VAT_RATES, date } from "@/lib/format";
@@ -112,6 +112,61 @@ function BusinessTab() {
       </Card>
       <div className="flex justify-end"><Button size="lg" loading={busy} data-testid="biz-save">{t("Save changes")}</Button></div>
     </form>
+  );
+}
+
+function ZeroloopTab() {
+  const { t } = useT();
+  const [s, setS] = useState(null);
+  const [busy, setBusy] = useState("");
+  const [params] = useSearchParams();
+  const load = () => api.get("/zeroloop").then(setS).catch(() => setS({ enabled: false }));
+  useEffect(() => {
+    load();
+    const r = params.get("zeroloop");
+    if (r === "connected") toast.success(t("Zeroloop connected. Your unpaid invoices and bills were sent."));
+    else if (r === "cancelled") toast(t("Connecting Zeroloop was cancelled."));
+    else if (r === "expired" || r === "failed") toast.error(t("Couldn't connect Zeroloop. Please try again."));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!s) return <PageLoader />;
+  if (!s.enabled) return null;
+  const run = async (key, fn) => { setBusy(key); try { await fn(); } catch (e) { toast.error(e.message); } setBusy(""); };
+  const connect = () => run("connect", async () => { window.location.href = (await api.post("/zeroloop/connect")).url; });
+  const open = () => run("open", async () => { window.open((await api.post("/zeroloop/open")).url, "_blank", "noopener"); });
+  const sync = () => run("sync", async () => { const r = await api.post("/zeroloop/sync"); toast.success(t("Sent {n} unpaid items to Zeroloop", { n: r.received })); load(); });
+  const disconnect = () => { if (window.confirm(t("Disconnect Zeroloop? Your invoices stop syncing; set-offs already booked stay."))) run("disconnect", async () => { await api.post("/zeroloop/disconnect"); load(); }); };
+  const sum = s.summary;
+  return (
+    <Section title="Zeroloop">
+      <Card className="p-5 sm:p-6 space-y-4" data-testid="zeroloop-card">
+        <div className="flex items-center gap-2"><InfinityIcon className="h-4 w-4 text-brand" /><p className="font-bold">Zeroloop</p>{s.connected && <Badge tone="success">{t("Connected")}</Badge>}</div>
+        <p className="text-sm text-muted">{t("Clears invoices that cancel out between you and other businesses: if you owe a supplier and a customer owes you, and they owe each other, part of it disappears without anyone paying.")}</p>
+        {!s.connected ? (
+          <>
+            <ul className="text-sm text-muted list-disc pl-5 space-y-1">
+              <li>{t("Tameio sends only your unpaid invoices and bills with other businesses: their ΑΦΜ, the number, the myDATA ΜΑΡΚ and the amount. Never your books.")}</li>
+              <li>{t("Nothing is cleared without your approval in Zeroloop.")}</li>
+              <li>{t("Cleared amounts come back as payments by set-off (συμψηφισμός), so balances and statements stay right.")}</li>
+            </ul>
+            <Button onClick={connect} disabled={busy === "connect"} data-testid="zeroloop-connect">{t("Connect Zeroloop")}</Button>
+          </>
+        ) : (
+          <>
+            <div className="text-sm space-y-1">
+              <p>{t("Connected as {name}", { name: s.member?.name || "" })}</p>
+              <p className="text-muted">{s.last_sync_at ? t("Last sync {when} · {n} unpaid items sent", { when: date(s.last_sync_at), n: s.last_sync?.received ?? 0 }) : t("Not synced yet")}{s.last_sync?.setoffs_booked ? ` · ${t("{n} set-offs booked", { n: s.last_sync.setoffs_booked })}` : ""}</p>
+              {s.last_error && <p className="text-danger">{s.last_error}</p>}
+              {sum && (sum.pending_approvals || sum.awaiting_payments) ? <p className="font-semibold text-brand">{t("{n} clearing(s) need your approval", { n: (sum.pending_approvals || 0) + (sum.awaiting_payments || 0) })}</p> : null}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={open} disabled={busy === "open"} data-testid="zeroloop-open"><ExternalLink className="h-4 w-4" />{t("Open Zeroloop")}</Button>
+              <Button variant="secondary" onClick={sync} disabled={busy === "sync"}><RefreshCw className="h-4 w-4" />{t("Sync now")}</Button>
+              <Button variant="ghost" onClick={disconnect} disabled={busy === "disconnect"}>{t("Disconnect")}</Button>
+            </div>
+          </>
+        )}
+      </Card>
+    </Section>
   );
 }
 
@@ -524,6 +579,7 @@ export default function Settings() {
           <Section title={t("Online shop")}><ShopsTab /></Section>
           <Section title={t("Receipts by email")}><InboxTab /></Section>
           <Section title={t("myDATA classification codes")}><CodesTab /></Section>
+          <ZeroloopTab />
         </div>
       )}
       {tab === "security" && <SecurityTab />}

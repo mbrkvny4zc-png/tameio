@@ -49,6 +49,14 @@ AADE_REGISTRY_PASS = os.environ.get("AADE_REGISTRY_PASS", "")
 # Partner programme: default revenue share (%) for accounting firms that refer paying businesses.
 PARTNER_SHARE_PCT = float(os.environ.get("PARTNER_SHARE_PCT", "20"))
 
+# Zeroloop (clears invoices that cancel out between businesses). Register Tameio as an app on Zeroloop
+# (POST /api/admin/connectors) with redirect URI {PUBLIC_URL}/api/zeroloop/callback and webhook URL
+# {PUBLIC_URL}/api/public/zeroloop/webhook, then set these four. Leave empty to hide the integration.
+ZEROLOOP_URL = os.environ.get("ZEROLOOP_URL", "").rstrip("/")
+ZEROLOOP_CLIENT_ID = os.environ.get("ZEROLOOP_CLIENT_ID", "")
+ZEROLOOP_CLIENT_SECRET = os.environ.get("ZEROLOOP_CLIENT_SECRET", "")
+ZEROLOOP_WEBHOOK_SECRET = os.environ.get("ZEROLOOP_WEBHOOK_SECRET", "")
+
 # Production: folder with the built website (frontend/dist) to serve from the same address as the API.
 STATIC_DIR = os.environ.get("STATIC_DIR", "")
 

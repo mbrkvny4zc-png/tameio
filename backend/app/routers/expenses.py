@@ -22,7 +22,7 @@ SCAN_DIR = config.UPLOAD_DIR / "scans"
 IMAGE_TYPES = {"image/jpeg": [b"\xff\xd8\xff"], "image/png": [b"\x89PNG"], "image/webp": [b"RIFF"], "image/gif": [b"GIF8"]}
 MAX_IMAGE = 5 * 1024 * 1024      # Claude's per-image limit
 MAX_PDF = 20 * 1024 * 1024
-PAYMENT_METHODS = ("cash", "card", "bank_transfer", "other")
+PAYMENT_METHODS = ("cash", "card", "bank_transfer", "other", "set_off")
 
 
 class ExpenseInput(BaseModel):

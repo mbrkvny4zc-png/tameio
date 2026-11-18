@@ -23,6 +23,7 @@ Invoicing, AADE myDATA e-invoicing, AI receipt scanning and supplier compliance 
 | **Online shops** | WooCommerce and Shopify webhooks (HMAC-signed) turn paid orders into receipts, or invoices when the buyer gives a ΑΦΜ, and report them |
 | **Stock** | Optional per product: sales and receipts take stock out, credit notes put it back, low-stock alerts, manual adjustments |
 | **Phone app** | Installable PWA with home-screen shortcuts (scan, quick receipt, new invoice); the API is never cached |
+| **Zeroloop** | Optional connector: sends only unpaid B2B invoices and bills (counterparty ΑΦΜ, number, ΜΑΡΚ, open amount) to Zeroloop, which clears debts that cancel out between businesses; cleared amounts come back as payments by set-off (συμψηφισμός). Connect in Settings → Connections; dashboard alert when clearings need approval; signed webhooks plus a pull fallback in the scheduler |
 | **Partner programme** | Every accounting firm gets a referral link (`/r/CODE`), a custom code and a QR · businesses are attributed once (sign-up link, set up by the firm, or code entered within 60 days) · monthly revenue-share report with CSV · admin page for share %, totals and payouts |
 | **Management (creator only)** | Overview (MRR, sign-ups, plans, usage, most active businesses), all users with plan changes, bug reports & ideas with replies, automatically captured crashes (browser and server, grouped and counted, "copy for fixing"), automations with on/off, run now and run history, partner payouts · access: `OWNER_EMAIL` (+ `PLATFORM_ADMINS`) |
 | **Help & feedback** | Every user can report a problem, suggest an idea or ask a question (with screenshot and page); they see your replies and get notified · new reports and a daily error digest are emailed to the creator |
@@ -71,6 +72,14 @@ and any file named like a target, e.g. `taverna.jpg`, is used as-is) and run `py
 - Set `COOKIE_SECURE=true`, a strong `MYDATA_ENCRYPTION_KEY`, and `PUBLIC_URL`.
 - `UPLOAD_DIR` holds scanned receipts and supplier documents: put it on persistent storage (or swap for S3).
 - The in-process rate limiter and scheduler assume a single API process; with several workers, move them to Redis / a dedicated worker.
+
+## Zeroloop connector
+
+1. On Zeroloop, register Tameio: `POST /api/admin/connectors` with `redirect_uris: ["{PUBLIC_URL}/api/zeroloop/callback"]` and `webhook_url: "{PUBLIC_URL}/api/public/zeroloop/webhook"`.
+2. Set `ZEROLOOP_URL`, `ZEROLOOP_CLIENT_ID`, `ZEROLOOP_CLIENT_SECRET`, `ZEROLOOP_WEBHOOK_SECRET`.
+3. Owners/admins connect from Settings → Connections. The `zeroloop_sync` automation syncs every connected business and books any set-offs a webhook missed.
+
+The connection token is stored encrypted (same key as myDATA credentials). Set-off payments can't be deleted from the invoice screen.
 
 ## Before going live
 

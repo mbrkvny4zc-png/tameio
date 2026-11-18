@@ -142,6 +142,7 @@ async def import_statement(file: UploadFile = File(...), ctx: Ctx = Depends(get_
     d = get_db()
     added = dup = 0
     seen = {}
+    new_rows = []
     for r in rows:
         base = f"{r['date']}|{r['amount']:.2f}|{r['description']}"
         seen[base] = seen.get(base, 0) + 1  # two identical lines in one file are two payments
@@ -151,9 +152,17 @@ async def import_statement(file: UploadFile = File(...), ctx: Ctx = Depends(get_
             continue
         await d.bank_txns.insert_one({"id": str(uuid.uuid4()), "org_id": ctx.org_id, "key": key, **r, "match": None, "ignored": False,
                                       "source": (file.filename or "statement.csv")[:120], "created_at": now()})
+        new_rows.append(r)
         added += 1
     matched = await auto_match(ctx.org_id)
-    return {"added": added, "duplicates": dup, "matched": matched}
+    # Missing-link payments from Zeroloop (reference ZL-XXXXXX) settle there as soon as they're seen here.
+    zl = 0
+    try:
+        from app.routers import zeroloop
+        zl = await zeroloop.report_bank_payments(ctx.org_id, new_rows)
+    except Exception:  # noqa: BLE001 — Zeroloop being down must never block a bank import
+        pass
+    return {"added": added, "duplicates": dup, "matched": matched, "zeroloop_confirmed": zl}
 
 
 @router.get("/bank/transactions")

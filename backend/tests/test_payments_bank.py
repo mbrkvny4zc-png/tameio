@@ -104,7 +104,7 @@ def test_bank_import_and_matching(client):
     rows = parse_statement(data)
     assert len(rows) == 4 and rows[0]["amount"] == 124.0 and rows[1]["amount"] == -62.0 and rows[3]["amount"] == 1500.0
     r = c.post("/api/bank/import", files={"file": ("statement.csv", io.BytesIO(data), "text/csv")}).json()
-    assert r == {"added": 4, "duplicates": 0, "matched": 2}
+    assert r == {"added": 4, "duplicates": 0, "matched": 2, "zeroloop_confirmed": 0}
     assert c.post("/api/bank/import", files={"file": ("statement.csv", io.BytesIO(data), "text/csv")}).json()["duplicates"] == 4
     assert c.get(f"/api/invoices/{inv['id']}").json()["status"] == "paid"
     assert next(x for x in c.get("/api/expenses").json() if x["id"] == exp["id"])["payment_status"] == "paid"

@@ -16,6 +16,7 @@ ZEROLOOP_WEBHOOK_SECRET are set.
 """
 import hashlib
 import hmac
+import re
 import secrets
 import time
 import uuid
@@ -118,12 +119,19 @@ async def open_items(org_id: str) -> list:
 
 # ------------------------------------------------------------------ set-offs → payments
 
-async def apply_setoff(org_id: str, external_id: str, amount: float, setoff_id: int, proposal_id: str, kind: str) -> bool:
-    """Book one Zeroloop set-off on an invoice or expense. Idempotent per setoff_id."""
+async def apply_setoff(org_id: str, external_id: str, amount: float, setoff_id: int, proposal_id: str, kind: str,
+                       settled_by: str = "set_off", reference: str = "") -> bool:
+    """Book one Zeroloop settlement on an invoice or expense. Idempotent per setoff_id.
+
+    settled_by "set_off": a set-off (συμψηφισμός). settled_by "payment": in a missing link, this
+    business's own bill or invoice was settled by the bank transfer between payer and payee."""
     from app.routers.invoices import _apply_payments  # avoid a circular import at load time
     d = get_db()
     amount = round(float(amount), 2)
-    note = f"Zeroloop {'missing link' if kind == 'chain' else 'clearing'} {proposal_id}"
+    cash = settled_by == "payment"
+    method = "bank_transfer" if cash else "set_off"
+    what = "missing link" if kind == "chain" else "clearing"
+    note = (f"Zeroloop {what} {reference or proposal_id}: paid directly by bank transfer" if cash else f"Zeroloop {what} {proposal_id}")
     if external_id.startswith("inv:"):
         inv = await d.invoices.find_one({"org_id": org_id, "id": external_id[4:]}, {"_id": 0})
         if not inv or any(p.get("setoff_id") == setoff_id for p in inv.get("payments") or []):
@@ -132,7 +140,7 @@ async def apply_setoff(org_id: str, external_id: str, amount: float, setoff_id: 
         amt = min(amount, max(owed, 0))
         if amt <= 0:
             return False
-        pay = {"id": str(uuid.uuid4()), "amount": amt, "date": today(), "method": "set_off", "note": note, "source": "zeroloop",
+        pay = {"id": str(uuid.uuid4()), "amount": amt, "date": today(), "method": method, "note": note, "source": "zeroloop",
                "setoff_id": setoff_id, "proposal_id": proposal_id, "recorded_by": "zeroloop", "created_at": now()}
         await d.invoices.update_one({"id": inv["id"]}, {"$push": {"payments": pay}})
         await _apply_payments(await d.invoices.find_one({"id": inv["id"]}, {"_id": 0}))
@@ -141,11 +149,11 @@ async def apply_setoff(org_id: str, external_id: str, amount: float, setoff_id: 
         e = await d.expenses.find_one({"org_id": org_id, "id": external_id[4:]}, {"_id": 0})
         if not e or any(s.get("setoff_id") == setoff_id for s in e.get("zeroloop_setoffs") or []):
             return False
-        entry = {"setoff_id": setoff_id, "amount": amount, "date": today(), "proposal_id": proposal_id, "kind": kind, "created_at": now()}
+        entry = {"setoff_id": setoff_id, "amount": amount, "date": today(), "proposal_id": proposal_id, "kind": kind, "settled_by": settled_by, "created_at": now()}
         settled = round(sum(s["amount"] for s in e.get("zeroloop_setoffs") or []) + amount, 2)
         sets = {"updated_at": now()}
         if settled >= round(e.get("total") or 0, 2) - 0.005:
-            sets.update({"payment_status": "paid", "payment_method": "set_off"})
+            sets.update({"payment_status": "paid", "payment_method": "bank_transfer" if cash else "set_off"})
         await d.expenses.update_one({"id": e["id"]}, {"$push": {"zeroloop_setoffs": entry}, "$set": sets})
         return True
     return False
@@ -161,7 +169,8 @@ async def pull_setoffs(org_id: str) -> int:
     n = 0
     top = since
     for s in data.get("setoffs") or []:
-        if await apply_setoff(org_id, s["external_id"], s["amount"], s["setoff_id"], s["proposal_id"], s.get("kind") or "loop"):
+        if await apply_setoff(org_id, s["external_id"], s["amount"], s["setoff_id"], s["proposal_id"], s.get("kind") or "loop",
+                              s.get("settled_by") or "set_off", s.get("reference") or ""):
             n += 1
         top = max(top, s["setoff_id"])
     if top != since:
@@ -176,12 +185,41 @@ async def sync_org(org_id: str) -> dict:
         raise HTTPException(status_code=400, detail="Connect Zeroloop first")
     booked = await pull_setoffs(org_id)
     items = await open_items(org_id)
-    res = await _http("PUT", "/api/connect/v1/open-items", token, json={"complete": True, "items": items})
+    biz = await get_business(org_id)
+    iban = biz.get("iban") or next((a.get("iban") for a in biz.get("bank_accounts") or [] if a.get("iban")), "")
+    body = {"complete": True, "items": items, **({"profile": {"iban": iban}} if iban else {})}
+    res = await _http("PUT", "/api/connect/v1/open-items", token, json=body)
     summary = {k: res.get(k, 0) for k in ("received", "invoices_created", "invoices_matched", "invoices_updated", "outside", "closed")}
     summary["setoffs_booked"] = booked
     summary["mismatches"] = len(res.get("mismatches") or [])
     await get_db().zeroloop.update_one({"org_id": org_id}, {"$set": {"last_sync_at": now(), "last_sync": summary, "last_error": None}})
     return summary
+
+
+ZL_REF = re.compile(r"\bZL[\s\-_.]?([A-Z2-9]{6})\b", re.IGNORECASE)
+
+
+async def report_bank_payments(org_id: str, rows: list) -> int:
+    """After a bank statement import: tell Zeroloop about incoming payments carrying a Zeroloop
+    reference (missing-link payments to this business). Returns how many it confirmed."""
+    if not enabled():
+        return 0
+    token = await _token(org_id)
+    if not token:
+        return 0
+    payments = []
+    for r in rows:
+        if (r.get("amount") or 0) <= 0:
+            continue
+        for m in ZL_REF.finditer(r.get("description") or ""):
+            payments.append({"reference": f"ZL-{m.group(1).upper()}", "amount": r["amount"], "date": r.get("date")})
+    if not payments:
+        return 0
+    res = await _http("POST", "/api/connect/v1/payments/received", token, json={"payments": payments[:500]})
+    confirmed = sum(1 for x in res.get("results") or [] if x.get("status") == "confirmed")
+    if confirmed:
+        await get_db().zeroloop.update_one({"org_id": org_id}, {"$inc": {"payments_confirmed": confirmed}})
+    return confirmed
 
 
 async def sync_all() -> int:
@@ -319,6 +357,7 @@ async def webhook(request: Request):
     p = evt.get("proposal") or {}
     n = 0
     for it in evt.get("items") or []:
-        if await apply_setoff(doc["org_id"], it["external_id"], it["amount"], it["setoff_id"], p.get("id", ""), p.get("kind") or "loop"):
+        if await apply_setoff(doc["org_id"], it["external_id"], it["amount"], it["setoff_id"], p.get("id", ""), p.get("kind") or "loop",
+                              it.get("settled_by") or "set_off", p.get("reference") or ""):
             n += 1
     return {"ok": True, "booked": n}

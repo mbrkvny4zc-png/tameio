@@ -81,6 +81,8 @@ and any file named like a target, e.g. `taverna.jpg`, is used as-is) and run `py
 
 The connection token is stored encrypted (same key as myDATA credentials). Set-off payments can't be deleted from the invoice screen.
 
+Missing-link payments: when a bank statement is imported, deposits whose description carries a Zeroloop reference (`ZL-XXXXXX`) are reported to Zeroloop, which settles the chain. The business's IBAN is shared with Zeroloop on sync so payers know where to send the money. Each settlement comes back as a set-off (`set_off`), or, for this business's own side of a missing-link transfer, as a bank payment (`bank_transfer`).
+
 ## Before going live
 
 - **myDATA:** tested against the simulation and mocked AADE responses only. Run the AADE test environment (`mydataapidev`) with real credentials before production.

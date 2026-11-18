@@ -23,5 +23,6 @@ export default {
   "Sync now": "Συγχρονισμός τώρα",
   "Zeroloop: {n} clearing(s) need your approval": "Zeroloop: {n} συμψηφισμοί περιμένουν την έγκρισή σας",
   "Set-off (Zeroloop)": "Συμψηφισμός (Zeroloop)",
+  "{n} Zeroloop payment(s) confirmed": "Επιβεβαιώθηκαν {n} πληρωμές Zeroloop",
   "This set-off was booked by Zeroloop. Ask your accountant before changing it.": "Αυτός ο συμψηφισμός καταχωρήθηκε από το Zeroloop. Ρωτήστε τον λογιστή σας πριν τον αλλάξετε.",
 };

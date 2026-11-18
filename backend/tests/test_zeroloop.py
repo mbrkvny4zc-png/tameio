@@ -171,3 +171,66 @@ def test_disconnect(client, zl):
     assert client.post("/api/zeroloop/disconnect").json()["ok"]
     assert zl.revoked and not client.get("/api/zeroloop").json()["connected"]
     assert client.post("/api/zeroloop/sync").status_code == 400
+
+
+def test_bank_import_reports_zeroloop_payments_and_sync_shares_iban(client, zl):
+    c = client
+    received = []
+
+    async def fake(method, path, token=None, json=None, form=None):
+        if path == "/api/connect/v1/payments/received":
+            received.append(json)
+            return {"results": [{"reference": p["reference"], "status": "confirmed" if p["reference"] == "ZL-7KQ2MX" else "not_found"} for p in json["payments"]]}
+        return await FakeZeroloop.__call__(zl, method, path, token, json, form)
+    from app.routers import zeroloop
+    import pytest as _pt
+    _connect(c, zl)
+    # The business's IBAN goes with the sync (set by the client fixture).
+    assert zl.snapshots[-1]["profile"]["iban"].startswith("GR")
+    mp = _pt.MonkeyPatch()
+    mp.setattr(zeroloop, "_http", fake)
+    try:
+        csv = ("Ημερομηνία;Αιτιολογία;Ποσό\n"
+               "20/11/2026;ΕΙΣΕΡΧΟΜΕΝΟ HYDRA INTERIORS zl 7kq2mx;2.000,00\n"
+               "20/11/2026;ΠΛΗΡΩΜΗ ΠΡΟΣ ZL-ABCDEF;-50,00\n"
+               "21/11/2026;ΚΑΤΑΘΕΣΗ ΧΩΡΙΣ ΚΩΔΙΚΟ;100,00\n").encode("cp1253")
+        r = c.post("/api/bank/import", files={"file": ("statement.csv", csv, "text/csv")})
+        assert r.status_code == 200, r.text
+        assert r.json()["zeroloop_confirmed"] == 1
+        # Only the incoming payment with a reference was reported, normalised.
+        assert received == [{"payments": [{"reference": "ZL-7KQ2MX", "amount": 2000.0, "date": "2026-11-20"}]}]
+        # Importing the same file again sends nothing (duplicates are skipped).
+        assert c.post("/api/bank/import", files={"file": ("statement.csv", csv, "text/csv")}).json()["zeroloop_confirmed"] == 0
+        assert len(received) == 1
+    finally:
+        mp.undo()
+
+
+def test_bank_import_works_when_zeroloop_is_down(client, zl):
+    from app.routers import zeroloop
+    _connect(client, zl)
+
+    async def down(*a, **k):
+        raise RuntimeError("connection refused")
+    import pytest as _pt
+    mp = _pt.MonkeyPatch()
+    mp.setattr(zeroloop, "_http", down)
+    try:
+        r = client.post("/api/bank/import", files={"file": ("s.csv", "Date;Description;Amount\n20/11/2026;ZL-7KQ2MX;10,00\n".encode(), "text/csv")})
+        assert r.status_code == 200 and r.json()["added"] == 1 and r.json()["zeroloop_confirmed"] == 0
+    finally:
+        mp.undo()
+
+
+def test_missing_link_payment_sides_are_booked_as_bank_transfers(client, zl):
+    from app.routers import zeroloop
+    c = client
+    inv = _inv(c)                                          # €124 receivable: this business is the payee
+    _connect(c, zl)
+    zl.setoffs = [{"setoff_id": 11, "proposal_id": "prp_c", "kind": "chain", "reference": "ZL-7KQ2MX", "external_id": f"inv:{inv['id']}",
+                   "amount": 124, "settled_by": "payment", "created_at": "2026-11-21"}]
+    org = run(c.db.zeroloop.find_one({}))["org_id"]
+    assert run(zeroloop.pull_setoffs(org)) == 1
+    got = c.get(f"/api/invoices/{inv['id']}").json()
+    assert got["status"] == "paid" and got["payments"][0]["method"] == "bank_transfer"
+    assert "ZL-7KQ2MX" in got["payments"][0]["note"] and "bank transfer" in got["payments"][0]["note"]

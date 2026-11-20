@@ -357,11 +357,14 @@ export default function Invoices() {
   const commentCounts = useCommentCounts("invoice");
   const [hints, setHints] = useState(null);
   const [preset, setPreset] = useState(null);
+  // Invoices Zeroloop is clearing right now: reminders pause for them (clear before you chase).
+  const [holds, setHolds] = useState({});
   const go = useNavigate();
 
   const load = useCallback(async () => {
     const [inv, cl, b] = await Promise.all([api.get("/invoices"), api.get("/clients"), api.get("/business")]);
     setList(inv); setClients(cl); setBiz(b);
+    api.get("/zeroloop/holds").then((r) => setHolds(r.holds || {})).catch(() => setHolds({}));
     return inv;
   }, []);
   useEffect(() => { load().catch(() => setList([])); }, [load]);
@@ -415,7 +418,9 @@ export default function Invoices() {
     } catch (e) { toast.error(e.message); }
   };
   const remind = async (inv) => {
-    try { const r = await api.post(`/invoices/${inv.id}/remind`); r.emailed ? toast.success(`Reminder sent to ${inv.client_email}`) : toast.message(tr("Email isn't set up on the server — reminder recorded")); load(); }
+    const hold = holds[inv.id];
+    if (hold && !window.confirm(tr("Zeroloop is clearing {a} of this invoice, so the customer may not need to pay it. Send the reminder anyway?", { a: money(hold.amount, inv.currency) }))) return;
+    try { const r = await api.post(`/invoices/${inv.id}/remind${hold ? "?force=true" : ""}`); r.emailed ? toast.success(`Reminder sent to ${inv.client_email}`) : toast.message(tr("Email isn't set up on the server — reminder recorded")); load(); }
     catch (e) { toast.error(e.message); }
   };
   const share = async (inv) => {
@@ -468,7 +473,8 @@ export default function Invoices() {
                 {i.recurring === "monthly" && <Repeat className="inline h-3 w-3 ml-1 text-violet" />}
                 {i.file && <Paperclip className="inline h-3 w-3 ml-1 text-muted" />}
               </td>
-              <td className="td"><p className="font-medium">{i.client_name === "Retail customer" ? tr("Retail customer") : i.client_name}</p><p className="text-[11px] text-muted">{date(i.issue_date)}{i.paid_amount > 0 && i.status !== "paid" ? <span className="text-success font-semibold">{` · ${tr("{a} of {b} paid", { a: money(i.paid_amount), b: money(i.total) })}`}</span> : ""}{i.withheld ? ` · ${tr("withholding")} ${money(i.withheld)}` : ""}{i.delivery ? ` · ${tr("+ delivery note")}` : ""}{i.source?.platform ? ` · ${i.source.platform} ${i.source.order_number}` : ""}{i.paid_via && ` · paid by ${i.paid_via === "viva" ? "card" : "bank"}`}{i.reminders?.length ? ` · ${i.reminders.length} reminder(s)` : ""}</p></td>
+              <td className="td"><p className="font-medium">{i.client_name === "Retail customer" ? tr("Retail customer") : i.client_name}</p><p className="text-[11px] text-muted">{date(i.issue_date)}{i.paid_amount > 0 && i.status !== "paid" ? <span className="text-success font-semibold">{` · ${tr("{a} of {b} paid", { a: money(i.paid_amount), b: money(i.total) })}`}</span> : ""}{i.withheld ? ` · ${tr("withholding")} ${money(i.withheld)}` : ""}{i.delivery ? ` · ${tr("+ delivery note")}` : ""}{i.source?.platform ? ` · ${i.source.platform} ${i.source.order_number}` : ""}{i.paid_via && ` · paid by ${i.paid_via === "viva" ? "card" : "bank"}`}{i.reminders?.length ? ` · ${i.reminders.length} reminder(s)` : ""}</p>
+                {holds[i.id] && <p className="text-[11px] text-brand font-semibold" title={tr("Payment reminders are paused while Zeroloop clears this invoice")}>∞ {tr("Zeroloop clearing {a} · reminders paused", { a: money(holds[i.id].amount, i.currency) })}</p>}</td>
               <td className={`td text-right num font-semibold ${i.kind === "credit_note" ? "text-violet" : ""}`}>{i.kind === "credit_note" ? "−" : ""}{money(i.total, i.currency)}</td>
               <td className="td">
                 {i.kind === "credit_note" ? <Badge tone="violet">{tr("Credit note")}</Badge> : i.kind === "receipt" ? <Badge tone="success">{tr(i.payment === "cash" ? "Paid · cash" : "Paid · card")}</Badge> : (

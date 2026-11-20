@@ -211,7 +211,7 @@ async def _send_reminder(inv: dict, days_late: int, custom: str = "") -> bool:
 
 
 @router.post("/invoices/{invoice_id}/remind")
-async def remind_now(invoice_id: str, ctx: Ctx = Depends(get_ctx)):
+async def remind_now(invoice_id: str, force: bool = False, ctx: Ctx = Depends(get_ctx)):
     d = get_db()
     inv = await d.invoices.find_one({"id": invoice_id, "org_id": ctx.org_id}, {"_id": 0})
     if not inv:
@@ -220,6 +220,12 @@ async def remind_now(invoice_id: str, ctx: Ctx = Depends(get_ctx)):
         raise HTTPException(status_code=400, detail="Only unpaid invoices get reminders")
     if not inv.get("client_email"):
         raise HTTPException(status_code=400, detail="Add the client's email first")
+    if not force:
+        from app.routers.zeroloop import clearing_holds
+        hold = (await clearing_holds(ctx.org_id)).get(invoice_id)
+        if hold:
+            raise HTTPException(status_code=409, detail=f"Zeroloop is clearing {money(hold['amount'], inv.get('currency'))} of this invoice. "
+                                                        "Reminding the customer now may not be needed.")
     s = await reminder_settings(ctx.org_id)
     emailed = await _send_reminder(inv, 0, s["message"])
     await d.invoices.update_one({"id": invoice_id}, {"$push": {"reminders": {"at": now(), "manual": True, "emailed": emailed}}})
@@ -234,7 +240,13 @@ async def send_due_reminders(today_iso: Optional[str] = None) -> int:
     async for st in d.reminder_settings.find({"enabled": True}, {"_id": 0}):
         open_invoices = await d.invoices.find({"org_id": st["org_id"], "status": {"$in": ["sent", "overdue"]}, "kind": {"$ne": "credit_note"},
                                                "due_date": {"$ne": None, "$lt": today_d.isoformat()}, "client_email": {"$nin": ["", None]}}, {"_id": 0}).to_list(2000)
+        held = {}
+        if open_invoices:
+            from app.routers.zeroloop import clearing_holds
+            held = await clearing_holds(st["org_id"])
         for inv in open_invoices:
+            if inv["id"] in held:
+                continue  # clear before you chase: wait for the clearing; the reminder goes out later if it fails
             late = (today_d - date.fromisoformat(inv["due_date"])).days
             done = {r.get("day") for r in inv.get("reminders", []) if not r.get("manual")}
             due = [x for x in st.get("days", []) if x <= late and x not in done]

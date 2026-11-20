@@ -20,6 +20,7 @@ class FakeZeroloop:
         self.snapshots = []
         self.setoffs = []
         self.revoked = False
+        self.clearing = []
 
     async def __call__(self, method, path, token=None, json=None, form=None):
         if path == "/api/connect/token":
@@ -33,6 +34,8 @@ class FakeZeroloop:
         if path.startswith("/api/connect/v1/setoffs"):
             since = int(path.split("since=")[1])
             return {"setoffs": [s for s in self.setoffs if s["setoff_id"] > since]}
+        if path == "/api/connect/v1/clearing":
+            return {"items": self.clearing}
         if path == "/api/connect/v1/summary":
             return {"summary": {"cleared": 0, "pending_approvals": 2, "awaiting_payments": 0}}
         if path == "/api/connect/v1/login-link":
@@ -234,3 +237,42 @@ def test_missing_link_payment_sides_are_booked_as_bank_transfers(client, zl):
     got = c.get(f"/api/invoices/{inv['id']}").json()
     assert got["status"] == "paid" and got["payments"][0]["method"] == "bank_transfer"
     assert "ZL-7KQ2MX" in got["payments"][0]["note"] and "bank transfer" in got["payments"][0]["note"]
+
+
+def test_clear_before_you_chase_pauses_reminders_for_invoices_in_a_clearing(client, zl):
+    from datetime import date, timedelta
+    from app.routers import payments
+    c = client
+    past = dict(client_email="pay@acme.example", issue_date=(date.today() - timedelta(days=40)).isoformat(), due_date=(date.today() - timedelta(days=11)).isoformat())
+    held, free = _inv(c, **past), _inv(c, **past)
+    c.put("/api/payments/reminders", json={"enabled": True, "days": [3, 10]})
+    _connect(c, zl)
+    zl.clearing = [{"external_id": f"inv:{held['id']}", "side": "creditor", "proposal_id": "prp_1", "kind": "loop", "status": "pending",
+                    "expires_at": "2026-12-01T00:00:00Z", "currency": "EUR", "amount": 80.0},
+                   {"external_id": "exp:other", "side": "debtor", "proposal_id": "prp_1", "kind": "loop", "status": "pending", "expires_at": None, "currency": "EUR", "amount": 80.0}]
+    assert c.get("/api/zeroloop/holds").json()["holds"] == {held["id"]: {"amount": 80.0, "status": "pending", "kind": "loop", "expires_at": "2026-12-01T00:00:00Z"}}
+
+    assert run(payments.send_due_reminders()) == 1  # only the free invoice is chased
+    assert not c.get(f"/api/invoices/{held['id']}").json().get("reminders")
+    assert c.get(f"/api/invoices/{free['id']}").json()["reminders"]
+    r = c.post(f"/api/invoices/{held['id']}/remind")
+    assert r.status_code == 409 and "Zeroloop is clearing" in r.json()["detail"]
+    assert c.post(f"/api/invoices/{held['id']}/remind?force=true").status_code == 200  # the owner can still insist
+
+    zl.clearing = []  # the clearing ended without settling: chasing resumes
+    assert run(payments.send_due_reminders()) == 1
+
+
+def test_reminders_go_out_when_zeroloop_is_unreachable(client, zl, monkeypatch):
+    from datetime import date, timedelta
+    from app.routers import payments, zeroloop
+    c = client
+    inv = _inv(c, client_email="pay@acme.example", issue_date=(date.today() - timedelta(days=40)).isoformat(), due_date=(date.today() - timedelta(days=11)).isoformat())
+    c.put("/api/payments/reminders", json={"enabled": True, "days": [3]})
+    _connect(c, zl)
+
+    async def down(*a, **k):
+        raise HTTPException(status_code=502, detail="Zeroloop: 503")
+    monkeypatch.setattr(zeroloop, "_http", down)
+    assert run(payments.send_due_reminders()) == 1
+    assert c.post(f"/api/invoices/{inv['id']}/remind").status_code == 200

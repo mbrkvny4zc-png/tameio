@@ -117,6 +117,37 @@ async def open_items(org_id: str) -> list:
     return items
 
 
+# ------------------------------------------------------------------ clear before you chase
+
+async def clearing_holds(org_id: str) -> dict:
+    """Invoices of this business that sit in a Zeroloop clearing right now, by invoice id.
+
+    Chasing a customer for money that is about to disappear by set-off only annoys them, so payment
+    reminders pause for these. If Zeroloop can't be reached, nothing is held: reminders go out as usual.
+    """
+    if not enabled():
+        return {}
+    token = await _token(org_id)
+    if not token:
+        return {}
+    try:
+        items = (await _http("GET", "/api/connect/v1/clearing", token)).get("items") or []
+    except Exception:  # noqa: BLE001 - never let Zeroloop block reminders
+        return {}
+    holds: dict = {}
+    for it in items:
+        ext = it.get("external_id") or ""
+        if not ext.startswith("inv:"):
+            continue
+        h = holds.setdefault(ext[4:], {"amount": 0.0, "status": it.get("status"), "kind": it.get("kind"), "expires_at": it.get("expires_at")})
+        h["amount"] = round(h["amount"] + float(it.get("amount") or 0), 2)
+        if it.get("status") == "awaiting_payment":
+            h["status"], h["kind"] = "awaiting_payment", it.get("kind")
+        if it.get("expires_at") and (not h["expires_at"] or it["expires_at"] < h["expires_at"]):
+            h["expires_at"] = it["expires_at"]
+    return holds
+
+
 # ------------------------------------------------------------------ set-offs → payments
 
 async def apply_setoff(org_id: str, external_id: str, amount: float, setoff_id: int, proposal_id: str, kind: str,
@@ -253,6 +284,11 @@ async def status(ctx: Ctx = Depends(get_ctx)):
         except HTTPException:
             out["summary"] = None
     return out
+
+
+@router.get("/zeroloop/holds")
+async def holds(ctx: Ctx = Depends(get_ctx)):
+    return {"holds": await clearing_holds(ctx.org_id)}
 
 
 @router.post("/zeroloop/connect")

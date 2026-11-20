@@ -157,6 +157,7 @@ function ZeroloopTab() {
               <p className="text-muted">{s.last_sync_at ? t("Last sync {when} · {n} unpaid items sent", { when: date(s.last_sync_at), n: s.last_sync?.received ?? 0 }) : t("Not synced yet")}{s.last_sync?.setoffs_booked ? ` · ${t("{n} set-offs booked", { n: s.last_sync.setoffs_booked })}` : ""}</p>
               {s.last_error && <p className="text-danger">{s.last_error}</p>}
               {sum && (sum.pending_approvals || sum.awaiting_payments) ? <p className="font-semibold text-brand">{t("{n} clearing(s) need your approval", { n: (sum.pending_approvals || 0) + (sum.awaiting_payments || 0) })}</p> : null}
+              <p className="text-muted">{t("Payment reminders pause for invoices Zeroloop is clearing, so you don't chase money that's about to disappear by set-off.")}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button onClick={open} disabled={busy === "open"} data-testid="zeroloop-open"><ExternalLink className="h-4 w-4" />{t("Open Zeroloop")}</Button>

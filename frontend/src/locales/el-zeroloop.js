@@ -25,4 +25,8 @@ export default {
   "Set-off (Zeroloop)": "Συμψηφισμός (Zeroloop)",
   "{n} Zeroloop payment(s) confirmed": "Επιβεβαιώθηκαν {n} πληρωμές Zeroloop",
   "This set-off was booked by Zeroloop. Ask your accountant before changing it.": "Αυτός ο συμψηφισμός καταχωρήθηκε από το Zeroloop. Ρωτήστε τον λογιστή σας πριν τον αλλάξετε.",
+  "Zeroloop is clearing {a} of this invoice, so the customer may not need to pay it. Send the reminder anyway?": "Το Zeroloop συμψηφίζει {a} από αυτό το τιμολόγιο, οπότε ο πελάτης ίσως δεν χρειαστεί να το πληρώσει. Να σταλεί η υπενθύμιση παρ' όλα αυτά;",
+  "Zeroloop clearing {a} · reminders paused": "Συμψηφισμός {a} στο Zeroloop · οι υπενθυμίσεις σε παύση",
+  "Payment reminders are paused while Zeroloop clears this invoice": "Οι υπενθυμίσεις πληρωμής σταματούν όσο το Zeroloop συμψηφίζει αυτό το τιμολόγιο",
+  "Payment reminders pause for invoices Zeroloop is clearing, so you don't chase money that's about to disappear by set-off.": "Οι υπενθυμίσεις πληρωμής σταματούν για τιμολόγια που συμψηφίζει το Zeroloop, ώστε να μην κυνηγάτε χρήματα που πρόκειται να συμψηφιστούν.",
 };

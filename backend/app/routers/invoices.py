@@ -268,7 +268,7 @@ async def duplicate_invoice(invoice_id: str, ctx: Ctx = Depends(get_ctx)):
 # ------------------------------------------------------------------ part payments
 
 PAY_METHODS = ("bank_transfer", "cash", "card", "cheque", "other")
-# Booked automatically by integrations (not offered in the payment form): a set-off (συμψηφισμός) from Zeroloop.
+# Booked automatically by integrations (not offered in the payment form): a set-off (συμψηφισμός) from ZeroLoop.
 SYSTEM_PAY_METHODS = ("set_off",)
 
 
@@ -318,7 +318,7 @@ async def add_payment(invoice_id: str, data: PaymentInput, ctx: Ctx = Depends(ge
 async def delete_payment(invoice_id: str, payment_id: str, ctx: Ctx = Depends(get_ctx)):
     inv = await _get(ctx.org_id, invoice_id)
     if any(p.get("id") == payment_id and p.get("source") == "zeroloop" for p in inv.get("payments") or []):
-        raise HTTPException(status_code=400, detail="This set-off was booked by Zeroloop. Ask your accountant before changing it.")
+        raise HTTPException(status_code=400, detail="This set-off was booked by ZeroLoop. Ask your accountant before changing it.")
     await get_db().invoices.update_one({"id": invoice_id}, {"$pull": {"payments": {"id": payment_id}}})
     return await _apply_payments(await _get(ctx.org_id, invoice_id))
 

@@ -60,7 +60,7 @@ export default function Bank() {
     const fd = new FormData(); fd.append("file", file);
     setBusy(true);
     try { const r = await api.upload("/bank/import", fd); toast.success(t("{a} payments imported · {m} matched automatically", { a: r.added, m: r.matched }));
-      if (r.zeroloop_confirmed) toast.success(t("{n} Zeroloop payment(s) confirmed", { n: r.zeroloop_confirmed })); await load(); }
+      if (r.zeroloop_confirmed) toast.success(t("{n} ZeroLoop payment(s) confirmed", { n: r.zeroloop_confirmed })); await load(); }
     catch (e) { toast.error(e.message); }
     setBusy(false);
   };

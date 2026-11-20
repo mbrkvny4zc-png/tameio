@@ -1,4 +1,4 @@
-"""Zeroloop connector: connect, sync open items, book set-offs from signed events or by pulling."""
+"""ZeroLoop connector: connect, sync open items, book set-offs from signed events or by pulling."""
 import hashlib
 import hmac
 import json
@@ -13,19 +13,20 @@ from conftest import CLIENT_AFM, VENDOR_AFM, run
 WEBHOOK_SECRET = "whsec_test"
 
 
-class FakeZeroloop:
-    """Stands in for Zeroloop's Connector API."""
+class FakeZeroLoop:
+    """Stands in for ZeroLoop's Connector API."""
 
     def __init__(self):
         self.snapshots = []
         self.setoffs = []
         self.revoked = False
         self.clearing = []
+        self.booked = []
 
     async def __call__(self, method, path, token=None, json=None, form=None):
         if path == "/api/connect/token":
             if form["code"] != "good-code" or form["client_secret"] != "zlsec":
-                raise HTTPException(status_code=400, detail="Zeroloop: Invalid code.")
+                raise HTTPException(status_code=400, detail="ZeroLoop: Invalid code.")
             return {"access_token": "zlc_secret_token", "connection_id": "con_1", "member": {"id": "mem_1", "name": "Papadopoulos Electrical", "vat_number": "EL094019245"}}
         assert token == "zlc_secret_token"
         if path == "/api/connect/v1/open-items":
@@ -34,6 +35,9 @@ class FakeZeroloop:
         if path.startswith("/api/connect/v1/setoffs"):
             since = int(path.split("since=")[1])
             return {"setoffs": [s for s in self.setoffs if s["setoff_id"] > since]}
+        if path.startswith("/api/connect/v1/proposals/") and path.endswith("/booked"):
+            self.booked.append((path.split("/")[5], json))
+            return {"bookings": []}
         if path == "/api/connect/v1/clearing":
             return {"items": self.clearing}
         if path == "/api/connect/v1/summary":
@@ -54,7 +58,7 @@ def zl(client, monkeypatch):
     monkeypatch.setattr(config, "ZEROLOOP_CLIENT_ID", "zlapp_1")
     monkeypatch.setattr(config, "ZEROLOOP_CLIENT_SECRET", "zlsec")
     monkeypatch.setattr(config, "ZEROLOOP_WEBHOOK_SECRET", WEBHOOK_SECRET)
-    fake = FakeZeroloop()
+    fake = FakeZeroLoop()
     monkeypatch.setattr(zeroloop, "_http", fake)
     return fake
 
@@ -138,13 +142,15 @@ def test_signed_setoff_events_become_payments_and_are_idempotent(client, zl):
     assert c.post("/api/public/zeroloop/webhook", content=raw, headers={**headers, "Zeroloop-Signature": headers["Zeroloop-Signature"][:-1] + "0"}).status_code == 401
     r = c.post("/api/public/zeroloop/webhook", content=raw, headers=headers)
     assert r.status_code == 200 and r.json()["booked"] == 2, r.text
+    assert zl.booked == [("prp_1", {"reference": "Tameio"})], "Tameio tells ZeroLoop it's booked, so the others see it"
     assert c.post("/api/public/zeroloop/webhook", content=raw, headers=headers).json()["booked"] == 0, "same set-off twice"
+    assert len(zl.booked) == 1
     got = c.get(f"/api/invoices/{inv['id']}").json()
     assert got["balance"] == 24 and got["payments"][0]["method"] == "set_off" and "prp_1" in got["payments"][0]["note"]
     assert next(x for x in c.get("/api/expenses").json() if x["id"] == exp["id"])["payment_status"] == "paid"
-    # A Zeroloop set-off can't be deleted from the invoice by accident.
+    # A ZeroLoop set-off can't be deleted from the invoice by accident.
     assert c.delete(f"/api/invoices/{inv['id']}/payments/{got['payments'][0]['id']}").status_code == 400
-    # Next sync reports what's been booked, so Zeroloop doesn't count it twice; the paid expense drops out.
+    # Next sync reports what's been booked, so ZeroLoop doesn't count it twice; the paid expense drops out.
     c.post("/api/zeroloop/sync")
     items = {i["external_id"]: i for i in zl.snapshots[-1]["items"]}
     assert items[f"inv:{inv['id']}"]["open"] == 24 and items[f"inv:{inv['id']}"]["zeroloop_settled"] == 100
@@ -184,7 +190,7 @@ def test_bank_import_reports_zeroloop_payments_and_sync_shares_iban(client, zl):
         if path == "/api/connect/v1/payments/received":
             received.append(json)
             return {"results": [{"reference": p["reference"], "status": "confirmed" if p["reference"] == "ZL-7KQ2MX" else "not_found"} for p in json["payments"]]}
-        return await FakeZeroloop.__call__(zl, method, path, token, json, form)
+        return await FakeZeroLoop.__call__(zl, method, path, token, json, form)
     from app.routers import zeroloop
     import pytest as _pt
     _connect(c, zl)
@@ -256,7 +262,7 @@ def test_clear_before_you_chase_pauses_reminders_for_invoices_in_a_clearing(clie
     assert not c.get(f"/api/invoices/{held['id']}").json().get("reminders")
     assert c.get(f"/api/invoices/{free['id']}").json()["reminders"]
     r = c.post(f"/api/invoices/{held['id']}/remind")
-    assert r.status_code == 409 and "Zeroloop is clearing" in r.json()["detail"]
+    assert r.status_code == 409 and "ZeroLoop is clearing" in r.json()["detail"]
     assert c.post(f"/api/invoices/{held['id']}/remind?force=true").status_code == 200  # the owner can still insist
 
     zl.clearing = []  # the clearing ended without settling: chasing resumes
@@ -272,7 +278,7 @@ def test_reminders_go_out_when_zeroloop_is_unreachable(client, zl, monkeypatch):
     _connect(c, zl)
 
     async def down(*a, **k):
-        raise HTTPException(status_code=502, detail="Zeroloop: 503")
+        raise HTTPException(status_code=502, detail="ZeroLoop: 503")
     monkeypatch.setattr(zeroloop, "_http", down)
     assert run(payments.send_due_reminders()) == 1
     assert c.post(f"/api/invoices/{inv['id']}/remind").status_code == 200

@@ -155,12 +155,12 @@ async def import_statement(file: UploadFile = File(...), ctx: Ctx = Depends(get_
         new_rows.append(r)
         added += 1
     matched = await auto_match(ctx.org_id)
-    # Missing-link payments from Zeroloop (reference ZL-XXXXXX) settle there as soon as they're seen here.
+    # Missing-link payments from ZeroLoop (reference ZL-XXXXXX) settle there as soon as they're seen here.
     zl = 0
     try:
         from app.routers import zeroloop
         zl = await zeroloop.report_bank_payments(ctx.org_id, new_rows)
-    except Exception:  # noqa: BLE001 — Zeroloop being down must never block a bank import
+    except Exception:  # noqa: BLE001 — ZeroLoop being down must never block a bank import
         pass
     return {"added": added, "duplicates": dup, "matched": matched, "zeroloop_confirmed": zl}
 

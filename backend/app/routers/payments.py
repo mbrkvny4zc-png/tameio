@@ -224,7 +224,7 @@ async def remind_now(invoice_id: str, force: bool = False, ctx: Ctx = Depends(ge
         from app.routers.zeroloop import clearing_holds
         hold = (await clearing_holds(ctx.org_id)).get(invoice_id)
         if hold:
-            raise HTTPException(status_code=409, detail=f"Zeroloop is clearing {money(hold['amount'], inv.get('currency'))} of this invoice. "
+            raise HTTPException(status_code=409, detail=f"ZeroLoop is clearing {money(hold['amount'], inv.get('currency'))} of this invoice. "
                                                         "Reminding the customer now may not be needed.")
     s = await reminder_settings(ctx.org_id)
     emailed = await _send_reminder(inv, 0, s["message"])

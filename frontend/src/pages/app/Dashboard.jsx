@@ -196,7 +196,7 @@ export default function Dashboard() {
       .then(([summary, attention, biz, mydata, invoices, expenses, suppliers, requests, calendar]) => setD({ summary, attention, biz, mydata, invoices, expenses, suppliers, requests, calendar }))
       .catch(() => setD(false));
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  // Zeroloop is loaded separately so a slow connection never holds up the dashboard.
+  // ZeroLoop is loaded separately so a slow connection never holds up the dashboard.
   const [zl, setZl] = useState(null);
   useEffect(() => { api.get("/zeroloop").then(setZl).catch(() => {}); }, []);
 
@@ -213,7 +213,7 @@ export default function Dashboard() {
   const nextTax = (d.calendar?.items || []).find((i) => !i.done && i.days_left >= 0 && i.days_left <= 21);
   const zlWaiting = zl?.connected ? (zl.summary?.pending_approvals || 0) + (zl.summary?.awaiting_payments || 0) : 0;
   const alerts = [
-    zlWaiting && [InfinityIcon, "brand", t("Zeroloop: {n} clearing(s) need your approval", { n: zlWaiting }), "/app/settings?tab=connections"],
+    zlWaiting && [InfinityIcon, "brand", t("ZeroLoop: {n} clearing(s) need your approval", { n: zlWaiting }), "/app/settings?tab=connections"],
     reqItems && [ReceiptText, "brand", t("Your accountant needs {n} receipt(s)", { n: reqItems }), "/app/requests"],
     nextTax && [Landmark, nextTax.days_left <= 7 ? "danger" : "warn", `${lang === "el" ? nextTax.title : nextTax.title_en} — ${nextTax.days_left === 0 ? t("today") : t("in {n} days", { n: nextTax.days_left })}${nextTax.estimate != null ? ` · ${money(nextTax.estimate)}` : ""}`, "/app/calendar"],
     a.overdue_invoices && [AlertTriangle, "danger", t("Overdue invoices: {n}", { n: a.overdue_invoices }), "/app/invoices?filter=overdue"],

@@ -272,7 +272,7 @@ def jobs() -> dict:
         "tax_reminders": ("Tax deadline reminders", "Notifies businesses before VAT and other deadlines.", taxes.tax_reminders),
         "agenda_reminders": ("Calendar reminders", "Once a day, tells each person what's due soon or overdue (in the app, and by email if they want).", agenda.agenda_reminders),
         "scheduled_reports": ("Send scheduled reports", "Emails each business's weekly (Mondays) and monthly (1st) reports to the chosen team members.", custom_reports.send_scheduled),
-        "zeroloop_sync": ("Zeroloop sync", "Sends each connected business's unpaid invoices and bills to Zeroloop and books cleared amounts as set-offs.", zeroloop.sync_all),
+        "zeroloop_sync": ("ZeroLoop sync", "Sends each connected business's unpaid invoices and bills to ZeroLoop and books cleared amounts as set-offs.", zeroloop.sync_all),
         "error_digest": ("Daily error digest", "Emails you a summary of new crashes and open bug reports.", error_digest),
         "purge_logs": ("Delete old logs", "Removes error and automation logs older than 90 days and expired sign-in sessions (as promised in the Privacy Policy).", purge_logs),
     }

@@ -1,13 +1,13 @@
-"""Zeroloop connector: clears invoices that cancel out between businesses.
+"""ZeroLoop connector: clears invoices that cancel out between businesses.
 
-Tameio is a client of Zeroloop's Connector API (see Zeroloop's docs/connector-api.md):
+Tameio is a client of ZeroLoop's Connector API (see ZeroLoop's docs/connector-api.md):
 
-1. Connect: the owner approves on Zeroloop (OAuth-style). We keep an encrypted
+1. Connect: the owner approves on ZeroLoop (OAuth-style). We keep an encrypted
    connection token per business.
 2. Sync: we send only OPEN B2B items: unpaid invoices to clients with an ΑΦΜ,
    and unpaid expenses from suppliers with an ΑΦΜ. Counterparty, number, myDATA
    ΜΑΡΚ, dates and open amount. Never lines, products or the rest of the books.
-3. Set-offs: when Zeroloop clears an item, it sends a signed event (and we also
+3. Set-offs: when ZeroLoop clears an item, it sends a signed event (and we also
    pull, as a fallback). We book it as a payment with method "set_off"
    (συμψηφισμός), so balances, client statements and exports stay right.
 
@@ -47,7 +47,7 @@ def _redirect_uri() -> str:
 
 
 async def _http(method: str, path: str, token: Optional[str] = None, json=None, form=None) -> dict:
-    """One call to Zeroloop. Tests replace this function."""
+    """One call to ZeroLoop. Tests replace this function."""
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     async with httpx.AsyncClient(timeout=TIMEOUT) as c:
         r = await c.request(method, config.ZEROLOOP_URL.rstrip("/") + path, headers=headers, json=json, data=form)
@@ -56,7 +56,7 @@ async def _http(method: str, path: str, token: Optional[str] = None, json=None, 
     except ValueError:
         data = {}
     if r.status_code >= 400:
-        raise HTTPException(status_code=502 if r.status_code >= 500 else 400, detail=f"Zeroloop: {data.get('error') or r.status_code}")
+        raise HTTPException(status_code=502 if r.status_code >= 500 else 400, detail=f"ZeroLoop: {data.get('error') or r.status_code}")
     return data
 
 
@@ -120,10 +120,10 @@ async def open_items(org_id: str) -> list:
 # ------------------------------------------------------------------ clear before you chase
 
 async def clearing_holds(org_id: str) -> dict:
-    """Invoices of this business that sit in a Zeroloop clearing right now, by invoice id.
+    """Invoices of this business that sit in a ZeroLoop clearing right now, by invoice id.
 
     Chasing a customer for money that is about to disappear by set-off only annoys them, so payment
-    reminders pause for these. If Zeroloop can't be reached, nothing is held: reminders go out as usual.
+    reminders pause for these. If ZeroLoop can't be reached, nothing is held: reminders go out as usual.
     """
     if not enabled():
         return {}
@@ -132,7 +132,7 @@ async def clearing_holds(org_id: str) -> dict:
         return {}
     try:
         items = (await _http("GET", "/api/connect/v1/clearing", token)).get("items") or []
-    except Exception:  # noqa: BLE001 - never let Zeroloop block reminders
+    except Exception:  # noqa: BLE001 - never let ZeroLoop block reminders
         return {}
     holds: dict = {}
     for it in items:
@@ -152,7 +152,7 @@ async def clearing_holds(org_id: str) -> dict:
 
 async def apply_setoff(org_id: str, external_id: str, amount: float, setoff_id: int, proposal_id: str, kind: str,
                        settled_by: str = "set_off", reference: str = "") -> bool:
-    """Book one Zeroloop settlement on an invoice or expense. Idempotent per setoff_id.
+    """Book one ZeroLoop settlement on an invoice or expense. Idempotent per setoff_id.
 
     settled_by "set_off": a set-off (συμψηφισμός). settled_by "payment": in a missing link, this
     business's own bill or invoice was settled by the bank transfer between payer and payee."""
@@ -162,7 +162,7 @@ async def apply_setoff(org_id: str, external_id: str, amount: float, setoff_id: 
     cash = settled_by == "payment"
     method = "bank_transfer" if cash else "set_off"
     what = "missing link" if kind == "chain" else "clearing"
-    note = (f"Zeroloop {what} {reference or proposal_id}: paid directly by bank transfer" if cash else f"Zeroloop {what} {proposal_id}")
+    note = (f"ZeroLoop {what} {reference or proposal_id}: paid directly by bank transfer" if cash else f"ZeroLoop {what} {proposal_id}")
     if external_id.startswith("inv:"):
         inv = await d.invoices.find_one({"org_id": org_id, "id": external_id[4:]}, {"_id": 0})
         if not inv or any(p.get("setoff_id") == setoff_id for p in inv.get("payments") or []):
@@ -190,6 +190,19 @@ async def apply_setoff(org_id: str, external_id: str, amount: float, setoff_id: 
     return False
 
 
+async def report_booked(org_id: str, proposal_ids) -> int:
+    """Tell ZeroLoop these clearings are booked in this business's books, so the others see it (no button to press)."""
+    token = await _token(org_id)
+    n = 0
+    for pid in {p for p in proposal_ids if p}:
+        try:
+            await _http("POST", f"/api/connect/v1/proposals/{pid}/booked", token, json={"reference": "Tameio"})
+            n += 1
+        except Exception:  # noqa: BLE001 - the booking itself is done; this is only a notice
+            pass
+    return n
+
+
 async def pull_setoffs(org_id: str) -> int:
     doc = await get_db().zeroloop.find_one({"org_id": org_id}, {"_id": 0})
     token = await _token(org_id)
@@ -199,13 +212,17 @@ async def pull_setoffs(org_id: str) -> int:
     data = await _http("GET", f"/api/connect/v1/setoffs?since={since}", token)
     n = 0
     top = since
+    booked = set()
     for s in data.get("setoffs") or []:
         if await apply_setoff(org_id, s["external_id"], s["amount"], s["setoff_id"], s["proposal_id"], s.get("kind") or "loop",
                               s.get("settled_by") or "set_off", s.get("reference") or ""):
             n += 1
+            booked.add(s["proposal_id"])
         top = max(top, s["setoff_id"])
     if top != since:
         await get_db().zeroloop.update_one({"org_id": org_id}, {"$set": {"last_setoff_id": top}})
+    if booked:
+        await report_booked(org_id, booked)
     return n
 
 
@@ -213,7 +230,7 @@ async def sync_org(org_id: str) -> dict:
     """Book any set-offs we haven't seen, then send a full snapshot of open items."""
     token = await _token(org_id)
     if not token:
-        raise HTTPException(status_code=400, detail="Connect Zeroloop first")
+        raise HTTPException(status_code=400, detail="Connect ZeroLoop first")
     booked = await pull_setoffs(org_id)
     items = await open_items(org_id)
     biz = await get_business(org_id)
@@ -231,7 +248,7 @@ ZL_REF = re.compile(r"\bZL[\s\-_.]?([A-Z2-9]{6})\b", re.IGNORECASE)
 
 
 async def report_bank_payments(org_id: str, rows: list) -> int:
-    """After a bank statement import: tell Zeroloop about incoming payments carrying a Zeroloop
+    """After a bank statement import: tell ZeroLoop about incoming payments carrying a ZeroLoop
     reference (missing-link payments to this business). Returns how many it confirmed."""
     if not enabled():
         return 0
@@ -271,7 +288,7 @@ async def sync_all() -> int:
 
 def _need_enabled():
     if not enabled():
-        raise HTTPException(status_code=400, detail="Zeroloop isn't set up on this server yet")
+        raise HTTPException(status_code=400, detail="ZeroLoop isn't set up on this server yet")
 
 
 @router.get("/zeroloop")
@@ -309,7 +326,7 @@ async def connect(ctx: Ctx = Depends(get_ctx)):
 
 @router.get("/zeroloop/callback", include_in_schema=False)
 async def callback(state: str = "", code: str = "", error: str = ""):
-    """Zeroloop sends the browser back here. The state ties it to the business that started it."""
+    """ZeroLoop sends the browser back here. The state ties it to the business that started it."""
     back = f"{config.PUBLIC_URL}/app/settings?tab=connections"
     d = get_db()
     doc = await d.zeroloop.find_one({"state.value": state}, {"_id": 0}) if state else None
@@ -343,11 +360,11 @@ async def sync_now(ctx: Ctx = Depends(get_ctx)):
 
 @router.post("/zeroloop/open")
 async def open_zeroloop(ctx: Ctx = Depends(get_ctx)):
-    """A single-use sign-in link to this business's Zeroloop console."""
+    """A single-use sign-in link to this business's ZeroLoop console."""
     _need_enabled()
     token = await _token(ctx.org_id)
     if not token:
-        raise HTTPException(status_code=400, detail="Connect Zeroloop first")
+        raise HTTPException(status_code=400, detail="Connect ZeroLoop first")
     return await _http("POST", "/api/connect/v1/login-link", token)
 
 
@@ -359,7 +376,7 @@ async def disconnect(ctx: Ctx = Depends(get_ctx)):
         try:
             await _http("DELETE", "/api/connect/v1/connection", token)
         except HTTPException:
-            pass  # already revoked on Zeroloop's side
+            pass  # already revoked on ZeroLoop's side
     await get_db().zeroloop.delete_one({"org_id": ctx.org_id})
     return {"ok": True}
 
@@ -396,4 +413,6 @@ async def webhook(request: Request):
         if await apply_setoff(doc["org_id"], it["external_id"], it["amount"], it["setoff_id"], p.get("id", ""), p.get("kind") or "loop",
                               it.get("settled_by") or "set_off", p.get("reference") or ""):
             n += 1
+    if n:
+        await report_booked(doc["org_id"], [p.get("id")])
     return {"ok": True, "booked": n}
